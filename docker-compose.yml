@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  ytdl-web:
+    build: .
+    container_name: ytdl-web
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./downloads:/app/downloads
+      - ./data:/app/data
+    environment:
+      - YTDL_DATABASE_URL=sqlite+aiosqlite:///./data/ytdl.db
+      - YTDL_DOWNLOADS_DIR=/app/downloads
+      - YTDL_MAX_CONCURRENT_DOWNLOADS=3
+      - YTDL_RUNNING_IN_DOCKER=true
+    restart: unless-stopped
