@@ -1,17 +1,42 @@
-// yt-dlp Web App JavaScript
+/**
+ * Corvid Cache - yt-dlp Web Interface
+ *
+ * Main JavaScript application for the Corvid Cache web UI.
+ * Handles all frontend functionality including:
+ * - WebSocket connection for real-time progress updates
+ * - Download management (create, cancel, retry)
+ * - Playlist/channel browsing and video selection
+ * - File browsing
+ * - Theme switching (dark/light mode)
+ * - Settings persistence
+ */
 
+/**
+ * Main application class.
+ * Manages UI state, WebSocket connection, and API interactions.
+ */
 class YtdlApp {
+    /** @type {string} Default output path template for downloads */
     static DEFAULT_OUTPUT_TEMPLATE = '%(channel)s/%(upload_date)s_%(title)s.%(ext)s';
 
     constructor() {
+        /** @type {WebSocket|null} WebSocket connection for real-time updates */
         this.ws = null;
+        /** @type {Map<number, object>} Map of download ID to download data */
         this.downloads = new Map();
+        /** @type {object|null} Currently displayed playlist data */
         this.currentPlaylist = null;
+        /** @type {number} Current page number for downloads pagination */
         this.currentPage = 1;
+        /** @type {number} Total number of pages for downloads */
         this.totalPages = 1;
         this.init();
     }
 
+    /**
+     * Initialize the application.
+     * Sets up theme, WebSocket, event listeners, and loads initial data.
+     */
     init() {
         this.initTheme();
         this.setupWebSocket();

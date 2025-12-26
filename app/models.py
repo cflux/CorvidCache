@@ -1,3 +1,10 @@
+"""
+SQLAlchemy database models.
+
+This module defines the database schema for the application including
+downloads, download history, subscriptions, and settings.
+"""
+
 from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional
@@ -9,6 +16,17 @@ from app.database import Base
 
 
 class DownloadStatus(str, PyEnum):
+    """
+    Enumeration of possible download states.
+
+    States:
+        QUEUED: Download is waiting to start.
+        FETCHING_INFO: Extracting video metadata from URL.
+        DOWNLOADING: Actively downloading the video.
+        COMPLETED: Download finished successfully.
+        FAILED: Download encountered an error.
+        CANCELLED: Download was cancelled by user.
+    """
     QUEUED = "queued"
     FETCHING_INFO = "fetching_info"
     DOWNLOADING = "downloading"
@@ -18,6 +36,28 @@ class DownloadStatus(str, PyEnum):
 
 
 class Download(Base):
+    """
+    Represents a video download task.
+
+    Tracks the full lifecycle of a download from queue to completion,
+    including progress updates and error handling.
+
+    Attributes:
+        id: Primary key.
+        video_id: Platform-specific video identifier (e.g., YouTube video ID).
+        url: Original URL submitted for download.
+        title: Video title (populated after metadata extraction).
+        thumbnail: URL to video thumbnail image.
+        status: Current download state (see DownloadStatus).
+        progress: Download progress percentage (0-100).
+        speed: Current download speed (e.g., "1.5 MiB/s").
+        eta: Estimated time remaining (e.g., "00:05:23").
+        output_path: Relative path to downloaded file.
+        error_message: Error description if download failed.
+        options: JSON blob of download options used.
+        created_at: Timestamp when download was queued.
+        completed_at: Timestamp when download finished.
+    """
     __tablename__ = "downloads"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -39,6 +79,20 @@ class Download(Base):
 
 
 class DownloadedVideo(Base):
+    """
+    Historical record of successfully downloaded videos.
+
+    Used to track which videos have been downloaded previously,
+    enabling "Select New Only" functionality when browsing playlists.
+
+    Attributes:
+        id: Primary key.
+        video_id: Platform-specific video identifier (unique).
+        title: Video title at time of download.
+        channel: Channel/uploader name.
+        downloaded_at: Timestamp of successful download.
+        file_path: Path to file (may be outdated if file moved/deleted).
+    """
     __tablename__ = "downloaded_videos"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -50,6 +104,23 @@ class DownloadedVideo(Base):
 
 
 class Subscription(Base):
+    """
+    Channel or playlist subscription for automatic monitoring.
+
+    Stores configuration for periodically checking channels/playlists
+    for new videos and automatically downloading them.
+
+    Attributes:
+        id: Primary key.
+        url: Channel or playlist URL to monitor.
+        name: Display name for the subscription.
+        check_interval_hours: How often to check for new videos.
+        enabled: Whether automatic checking is active.
+        options: JSON blob of download options to use.
+        last_checked: Timestamp of last check.
+        last_video_count: Number of videos found on last check.
+        created_at: Timestamp when subscription was created.
+    """
     __tablename__ = "subscriptions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -64,6 +135,16 @@ class Subscription(Base):
 
 
 class Settings(Base):
+    """
+    Key-value store for application settings.
+
+    Stores persistent settings like saved download options.
+
+    Attributes:
+        id: Primary key.
+        key: Setting name (unique).
+        value: JSON blob containing the setting value.
+    """
     __tablename__ = "settings"
 
     id: Mapped[int] = mapped_column(primary_key=True)

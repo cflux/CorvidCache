@@ -1,3 +1,14 @@
+"""
+yt-dlp download service.
+
+This module provides a wrapper around yt-dlp for downloading videos with:
+- Async download execution using subprocess for reliable cancellation
+- Real-time progress tracking via callbacks
+- Cookie-based YouTube authentication
+- Support for playlists, channels, and individual videos
+- Automatic cleanup of partial downloads on cancellation
+"""
+
 import asyncio
 import json
 import logging
@@ -20,11 +31,24 @@ logger = logging.getLogger(__name__)
 
 
 class DownloaderService:
+    """
+    Service for managing video downloads using yt-dlp.
+
+    Uses subprocess execution for downloads to enable reliable cancellation
+    on Windows. Tracks active downloads and provides progress callbacks.
+
+    Attributes:
+        active_downloads: Map of download ID to asyncio Task.
+        _cancel_flags: Map of download ID to cancellation flag.
+        _active_processes: Map of download ID to subprocess.Popen instance.
+        _current_files: Map of download ID to current file path being downloaded.
+    """
+
     def __init__(self):
         self.active_downloads: dict[int, asyncio.Task] = {}
         self._cancel_flags: dict[int, bool] = {}
-        self._active_processes: dict[int, subprocess.Popen] = {}  # Store active subprocesses
-        self._current_files: dict[int, str] = {}  # Track current download file paths
+        self._active_processes: dict[int, subprocess.Popen] = {}
+        self._current_files: dict[int, str] = {}
 
     def _get_base_opts(self) -> dict:
         """Get base options including cookies if available."""

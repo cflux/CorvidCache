@@ -1,3 +1,16 @@
+"""
+Downloads API router.
+
+Provides REST API endpoints for:
+- Creating and managing video downloads
+- Extracting video/playlist metadata
+- Cookie management for YouTube authentication
+- File browsing and serving
+- Settings management
+- yt-dlp version checking and updates
+- Database maintenance operations
+"""
+
 import asyncio
 import logging
 import os
