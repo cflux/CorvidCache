@@ -256,6 +256,9 @@ class DownloaderService:
             download_id: Optional download ID for tracking.
         """
         try:
+            # Debug: log the raw postprocessor hook data
+            logger.info(f"[Postprocessor Hook] Download {download_id}: {d}")
+
             # Check cancel flag
             if download_id and self._cancel_flags.get(download_id):
                 logger.info(f"Download {download_id} cancelled via postprocessor hook")
@@ -522,8 +525,37 @@ class DownloaderService:
                         except (ValueError, IndexError) as e:
                             logger.debug(f"[Download {download_id}] Progress parse error: {e}")
 
+                    # Detect post-processing steps
+                    elif line.startswith("[") and progress_callback:
+                        # Map yt-dlp postprocessor names to user-friendly descriptions
+                        pp_patterns = {
+                            "[Merger]": "Merging video and audio",
+                            "[FFmpegVideoConvertor]": "Converting video format",
+                            "[ExtractAudio]": "Extracting audio",
+                            "[FFmpegMetadata]": "Embedding metadata",
+                            "[EmbedThumbnail]": "Embedding thumbnail",
+                            "[FFmpegEmbedSubtitle]": "Embedding subtitles",
+                            "[FFmpegVideoRemuxer]": "Remuxing video",
+                            "[MoveFiles]": "Moving files",
+                            "[ModifyChapters]": "Processing chapters",
+                            "[SponsorBlock]": "Processing sponsor segments",
+                        }
+
+                        for pattern, description in pp_patterns.items():
+                            if line.startswith(pattern):
+                                logger.info(f"[Download {download_id}] Postprocessing: {description}")
+                                try:
+                                    progress_callback({
+                                        "status": "processing",
+                                        "progress": 100,
+                                        "processing_step": description,
+                                    })
+                                except Exception as cb_error:
+                                    logger.error(f"[Download {download_id}] Processing callback error: {cb_error}")
+                                break
+
                     # Capture final filepath from --print
-                    elif line and not line.startswith("[") and Path(line).suffix:
+                    if line and not line.startswith("[") and Path(line).suffix:
                         # This might be the final filepath from --print
                         if Path(line).exists() or "%" not in line:
                             filename = line
