@@ -467,6 +467,7 @@ class DownloaderService:
 
             filename = None
             last_progress_time = 0
+            last_progress_value = 0  # Track last progress to detect new streams
             sent_processing_status = False  # Track if we've sent processing status
 
             try:
@@ -509,6 +510,14 @@ class DownloaderService:
                                 eta_match = re.search(r'ETA\s+(\d+:\d+(?::\d+)?)', line)
                                 eta = eta_match.group(1) if eta_match else None
 
+                                # Detect if a new stream started (progress dropped significantly)
+                                # This happens with bestvideo+bestaudio downloads
+                                if progress < 50 and last_progress_value > 90:
+                                    logger.info(f"[Download {download_id}] New stream detected (progress dropped from {last_progress_value:.1f}% to {progress:.1f}%)")
+                                    sent_processing_status = False  # Reset so we can trigger after this stream
+
+                                last_progress_value = progress
+
                                 # Throttle callbacks
                                 current_time = time_module.time()
                                 should_update = current_time - last_progress_time >= 0.5 or progress >= 99
@@ -517,15 +526,17 @@ class DownloaderService:
                                     logger.info(f"[Download {download_id}] Progress: {progress:.1f}% Speed: {speed} ETA: {eta}")
                                     try:
                                         # When download hits 100%, switch to processing status
+                                        # Only if we haven't already (handles multi-stream downloads)
                                         if progress >= 99.9 and not sent_processing_status:
                                             sent_processing_status = True
-                                            logger.info(f"[Download {download_id}] Download complete, starting post-processing...")
+                                            logger.info(f"[Download {download_id}] Stream complete, checking for post-processing...")
                                             progress_callback({
                                                 "status": "processing",
                                                 "progress": 100,
                                                 "processing_step": "Processing...",
                                             })
-                                        else:
+                                        elif not sent_processing_status:
+                                            # Only send progress if we haven't switched to processing
                                             progress_callback({
                                                 "progress": progress,
                                                 "speed": speed,
