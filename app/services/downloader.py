@@ -469,6 +469,7 @@ class DownloaderService:
             last_progress_time = 0
             last_progress_value = 0  # Track last progress to detect new streams
             sent_processing_status = False  # Track if we've sent processing status
+            logger.info(f"[Download {download_id}] STATE: Initialized - last_progress_value=0, sent_processing_status=False")
 
             try:
                 for line in iter(process.stdout.readline, ''):
@@ -501,6 +502,9 @@ class DownloaderService:
                             match = re.search(r'(\d+\.?\d*)%', line)
                             if match:
                                 progress = float(match.group(1))
+                                # Log at INFO when progress >= 99 to help debug premature processing status
+                                if progress >= 99:
+                                    logger.info(f"[Download {download_id}] PARSE: Extracted {progress:.1f}% from line: {line}")
 
                                 # Extract speed (handles both "at X" and "~X" formats)
                                 speed_match = re.search(r'(?:at|~)\s*([\d.]+\s*\w+/s)', line)
@@ -513,9 +517,12 @@ class DownloaderService:
                                 # Detect if a new stream started (progress dropped significantly)
                                 # This happens with bestvideo+bestaudio downloads
                                 if progress < 50 and last_progress_value > 90:
-                                    logger.info(f"[Download {download_id}] New stream detected (progress dropped from {last_progress_value:.1f}% to {progress:.1f}%)")
+                                    logger.info(f"[Download {download_id}] STATE: New stream detected (progress dropped from {last_progress_value:.1f}% to {progress:.1f}%), resetting sent_processing_status to False")
                                     sent_processing_status = False  # Reset so we can trigger after this stream
 
+                                # Log state at INFO level when progress is high to debug premature processing
+                                if progress >= 90:
+                                    logger.info(f"[Download {download_id}] STATE: progress={progress:.1f}%, last_progress_value={last_progress_value:.1f}%, sent_processing_status={sent_processing_status}")
                                 last_progress_value = progress
 
                                 # Throttle callbacks
@@ -528,8 +535,8 @@ class DownloaderService:
                                         # When download hits 100%, switch to processing status
                                         # Only if we haven't already (handles multi-stream downloads)
                                         if progress >= 99.9 and not sent_processing_status:
+                                            logger.info(f"[Download {download_id}] STATE CHANGE: Triggering PROCESSING status (progress={progress:.1f}%, sent_processing_status was False)")
                                             sent_processing_status = True
-                                            logger.info(f"[Download {download_id}] Stream complete, checking for post-processing...")
                                             progress_callback({
                                                 "status": "processing",
                                                 "progress": 100,
@@ -565,6 +572,7 @@ class DownloaderService:
 
                         for pattern, description in pp_patterns.items():
                             if line.startswith(pattern):
+                                logger.info(f"[Download {download_id}] STATE CHANGE: Postprocessor detected '{pattern}', setting sent_processing_status=True")
                                 sent_processing_status = True  # Mark as sent
                                 logger.info(f"[Download {download_id}] Postprocessing: {description}")
                                 try:
