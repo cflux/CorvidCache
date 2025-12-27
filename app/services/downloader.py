@@ -467,6 +467,7 @@ class DownloaderService:
 
             filename = None
             last_progress_time = 0
+            sent_processing_status = False  # Track if we've sent processing status
 
             try:
                 for line in iter(process.stdout.readline, ''):
@@ -515,17 +516,27 @@ class DownloaderService:
                                     last_progress_time = current_time
                                     logger.info(f"[Download {download_id}] Progress: {progress:.1f}% Speed: {speed} ETA: {eta}")
                                     try:
-                                        progress_callback({
-                                            "progress": progress,
-                                            "speed": speed,
-                                            "eta": eta,
-                                        })
+                                        # When download hits 100%, switch to processing status
+                                        if progress >= 99.9 and not sent_processing_status:
+                                            sent_processing_status = True
+                                            logger.info(f"[Download {download_id}] Download complete, starting post-processing...")
+                                            progress_callback({
+                                                "status": "processing",
+                                                "progress": 100,
+                                                "processing_step": "Processing...",
+                                            })
+                                        else:
+                                            progress_callback({
+                                                "progress": progress,
+                                                "speed": speed,
+                                                "eta": eta,
+                                            })
                                     except Exception as cb_error:
                                         logger.error(f"[Download {download_id}] Callback error: {cb_error}")
                         except (ValueError, IndexError) as e:
                             logger.debug(f"[Download {download_id}] Progress parse error: {e}")
 
-                    # Detect post-processing steps
+                    # Detect post-processing steps (update description if we see specific messages)
                     elif line.startswith("[") and progress_callback:
                         # Map yt-dlp postprocessor names to user-friendly descriptions
                         pp_patterns = {
@@ -543,6 +554,7 @@ class DownloaderService:
 
                         for pattern, description in pp_patterns.items():
                             if line.startswith(pattern):
+                                sent_processing_status = True  # Mark as sent
                                 logger.info(f"[Download {download_id}] Postprocessing: {description}")
                                 try:
                                     progress_callback({
