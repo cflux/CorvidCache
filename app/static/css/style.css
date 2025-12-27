@@ -418,12 +418,17 @@ body {
 /* Source badge */
 .source-badge {
     font-size: 0.7rem;
-    padding: 0.2em 0.4em;
+    padding: 0.25em 0.45em;
     vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 
 .source-badge i {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    line-height: 1;
 }
 
 .file-name .source-badge {
