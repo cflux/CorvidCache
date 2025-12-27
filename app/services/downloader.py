@@ -534,7 +534,15 @@ class DownloaderService:
                                     try:
                                         # When download hits 100%, switch to processing status
                                         # Only if we haven't already (handles multi-stream downloads)
-                                        if progress >= 99.9 and not sent_processing_status:
+                                        # For fragmented downloads, check if all fragments are complete
+                                        frag_match = re.search(r'\(frag\s+(\d+)/(\d+)\)', line)
+                                        is_final_fragment = True
+                                        if frag_match:
+                                            current_frag = int(frag_match.group(1))
+                                            total_frags = int(frag_match.group(2))
+                                            is_final_fragment = (current_frag >= total_frags)
+
+                                        if progress >= 99.9 and not sent_processing_status and is_final_fragment:
                                             logger.info(f"[Download {download_id}] STATE CHANGE: Triggering PROCESSING status (progress={progress:.1f}%, sent_processing_status was False)")
                                             sent_processing_status = True
                                             progress_callback({

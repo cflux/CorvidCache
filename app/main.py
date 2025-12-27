@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
 
 
 # Application version
-APP_VERSION = "1.3.6"
+APP_VERSION = "1.3.7"
 
 # Create FastAPI application instance
 app = FastAPI(
