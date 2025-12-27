@@ -1331,6 +1331,18 @@ class YtdlApp {
         const resultDiv = document.getElementById('cleanup-result');
         resultDiv.innerHTML = '';
 
+        // Load max concurrent downloads setting
+        try {
+            const concurrentResponse = await fetch('/api/settings/max-concurrent');
+            const concurrentData = await concurrentResponse.json();
+            const select = document.getElementById('max-concurrent-downloads');
+            if (select) {
+                select.value = concurrentData.value.toString();
+            }
+        } catch (error) {
+            console.error('Failed to load max concurrent setting:', error);
+        }
+
         try {
             const response = await fetch('/api/maintenance/stats');
             const data = await response.json();
@@ -1467,6 +1479,28 @@ class YtdlApp {
                     <i class="bi bi-x-circle me-1"></i>Delete failed: ${error.message}
                 </div>
             `;
+        }
+    }
+
+    async saveMaxConcurrentDownloads() {
+        const select = document.getElementById('max-concurrent-downloads');
+        const value = parseInt(select.value, 10);
+
+        try {
+            const response = await fetch('/api/settings/max-concurrent', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save setting');
+            }
+
+            console.log(`Max concurrent downloads set to ${value}`);
+        } catch (error) {
+            console.error('Failed to save max concurrent setting:', error);
+            alert('Failed to save setting: ' + error.message);
         }
     }
 

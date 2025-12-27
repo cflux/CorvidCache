@@ -33,10 +33,11 @@ async def lifespan(app: FastAPI):
     Application lifespan manager.
 
     Handles startup and shutdown tasks:
-    - Startup: Initialize database tables, start subscription checker
+    - Startup: Initialize database tables, download semaphore, start subscription checker
     - Shutdown: Cleanup (handled automatically by context manager)
     """
     await init_db()
+    await downloads.init_download_semaphore()
     subscriptions.start_subscription_checker()
     yield
 

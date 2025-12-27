@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/ytdl.db"
     downloads_dir: Path = Path("./downloads")
     cookies_path: Path = Path("./data/cookies.txt")
-    max_concurrent_downloads: int = 3
+    max_concurrent_downloads: int = 1
     running_in_docker: bool = False
 
     class Config:

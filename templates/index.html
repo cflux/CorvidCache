@@ -441,6 +441,30 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Download Settings -->
+                    <h6 class="mb-3"><i class="bi bi-sliders me-2"></i>Download Settings</h6>
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col">
+                                    <h6 class="card-title mb-1">Max Concurrent Downloads</h6>
+                                    <p class="card-text small text-muted mb-0">
+                                        Number of downloads that can run simultaneously. Lower values are more stable.
+                                    </p>
+                                </div>
+                                <div class="col-auto">
+                                    <select class="form-select form-select-sm" id="max-concurrent-downloads" style="width: auto;" onchange="app.saveMaxConcurrentDownloads()">
+                                        <option value="1">1 (Recommended)</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                        <option value="5">5</option>
+                                        <option value="10">10</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Database Stats -->
                     <h6 class="mb-3"><i class="bi bi-database me-2"></i>Database Statistics</h6>
                     <div id="db-stats" class="mb-4">

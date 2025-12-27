@@ -54,10 +54,37 @@ active_tasks: dict[int, asyncio.Task] = {}
 
 # Semaphore to limit concurrent downloads
 download_semaphore: Optional[asyncio.Semaphore] = None
+_semaphore_initialized = False
+
+
+async def init_download_semaphore():
+    """Initialize the download semaphore from saved settings."""
+    global download_semaphore, _semaphore_initialized
+    if _semaphore_initialized:
+        return
+
+    from app.database import async_session
+
+    max_concurrent = settings.max_concurrent_downloads
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(Settings).where(Settings.key == "max_concurrent_downloads")
+            )
+            setting = result.scalar_one_or_none()
+            if setting:
+                max_concurrent = setting.value.get("value", settings.max_concurrent_downloads)
+    except Exception as e:
+        logger.warning(f"Failed to load max concurrent setting: {e}")
+
+    download_semaphore = asyncio.Semaphore(max_concurrent)
+    _semaphore_initialized = True
+    logger.info(f"Download semaphore initialized with max_concurrent={max_concurrent}")
 
 
 def get_download_semaphore() -> asyncio.Semaphore:
-    """Get or create the download semaphore."""
+    """Get the download semaphore (creates default if not initialized)."""
     global download_semaphore
     if download_semaphore is None:
         download_semaphore = asyncio.Semaphore(settings.max_concurrent_downloads)
@@ -725,6 +752,50 @@ async def save_download_options(options: dict, db: AsyncSession = Depends(get_db
 
     await db.commit()
     return {"success": True}
+
+
+@router.get("/settings/max-concurrent")
+async def get_max_concurrent(db: AsyncSession = Depends(get_db)):
+    """Get max concurrent downloads setting."""
+    result = await db.execute(
+        select(Settings).where(Settings.key == "max_concurrent_downloads")
+    )
+    setting = result.scalar_one_or_none()
+    if setting:
+        return {"value": setting.value.get("value", settings.max_concurrent_downloads)}
+    return {"value": settings.max_concurrent_downloads}
+
+
+@router.put("/settings/max-concurrent")
+async def set_max_concurrent(data: dict, db: AsyncSession = Depends(get_db)):
+    """Set max concurrent downloads and update the semaphore."""
+    global download_semaphore
+
+    value = int(data.get("value", 1))
+    if value < 1:
+        value = 1
+    if value > 10:
+        value = 10
+
+    # Save to database
+    result = await db.execute(
+        select(Settings).where(Settings.key == "max_concurrent_downloads")
+    )
+    setting = result.scalar_one_or_none()
+
+    if setting:
+        setting.value = {"value": value}
+    else:
+        setting = Settings(key="max_concurrent_downloads", value={"value": value})
+        db.add(setting)
+
+    await db.commit()
+
+    # Update the semaphore for new downloads
+    download_semaphore = asyncio.Semaphore(value)
+    logger.info(f"Max concurrent downloads set to {value}")
+
+    return {"success": True, "value": value}
 
 
 # yt-dlp Version Management
