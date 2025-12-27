@@ -361,6 +361,7 @@ class YtdlApp {
         // Maintenance modal
         document.getElementById('maintenance-modal').addEventListener('show.bs.modal', () => {
             this.loadMaintenanceStats();
+            this.loadLogSize();
         });
     }
 
@@ -1589,6 +1590,139 @@ class YtdlApp {
                     <i class="bi bi-x-circle me-1"></i>Cleanup failed: ${error.message}
                 </div>
             `;
+        }
+    }
+
+    // Logs Management
+    logSearchTimeout = null;
+
+    debounceLogSearch() {
+        clearTimeout(this.logSearchTimeout);
+        this.logSearchTimeout = setTimeout(() => this.loadLogs(), 300);
+    }
+
+    async loadLogs() {
+        const logContent = document.getElementById('log-content');
+        const logStats = document.getElementById('log-stats');
+        const levelFilter = document.getElementById('log-level-filter')?.value || '';
+        const searchFilter = document.getElementById('log-search')?.value || '';
+        const lines = document.getElementById('log-lines')?.value || 500;
+
+        logContent.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center p-4">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                Loading logs...
+            </div>
+        `;
+
+        try {
+            const params = new URLSearchParams({ lines });
+            if (levelFilter) params.append('level', levelFilter);
+            if (searchFilter) params.append('search', searchFilter);
+
+            const response = await fetch(`/api/logs?${params}`);
+            const data = await response.json();
+
+            logStats.textContent = `Showing ${data.showing} of ${data.filtered_lines} filtered lines (${data.total_lines} total)`;
+
+            if (data.logs.length === 0) {
+                logContent.innerHTML = `
+                    <div class="text-center text-muted p-4">
+                        <i class="bi bi-journal-x" style="font-size: 2rem;"></i>
+                        <p class="mt-2 mb-0">No logs found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Format logs with syntax highlighting
+            const formattedLogs = data.logs.map(line => this.formatLogLine(line)).join('');
+            logContent.innerHTML = formattedLogs;
+
+            // Scroll to bottom (most recent)
+            logContent.scrollTop = logContent.scrollHeight;
+
+        } catch (error) {
+            logContent.innerHTML = `
+                <div class="text-center text-danger p-4">
+                    <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i>
+                    <p class="mt-2 mb-0">Failed to load logs: ${error.message}</p>
+                </div>
+            `;
+        }
+    }
+
+    formatLogLine(line) {
+        // Parse log line: 2024-01-15 10:30:45,123 - module - LEVEL - message
+        const match = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - ([^ ]+) - (\w+) - (.*)$/);
+
+        if (match) {
+            const [, timestamp, module, level, message] = match;
+            const levelClass = `log-level-${level.toLowerCase()}`;
+            return `<div class="log-line"><span class="log-timestamp">${timestamp}</span> - <span class="log-module">${module}</span> - <span class="${levelClass}">${level}</span> - ${this.escapeHtml(message)}</div>`;
+        }
+
+        // Fallback for lines that don't match the pattern
+        return `<div class="log-line">${this.escapeHtml(line)}</div>`;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async clearLogs() {
+        if (!confirm('Clear all application logs? This cannot be undone.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/logs', { method: 'DELETE' });
+            const data = await response.json();
+
+            if (data.success) {
+                // Refresh logs view if open
+                const logContent = document.getElementById('log-content');
+                if (logContent) {
+                    logContent.innerHTML = `
+                        <div class="text-center text-muted p-4">
+                            <i class="bi bi-journal-x" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">Logs cleared</p>
+                        </div>
+                    `;
+                }
+
+                // Update size info
+                this.loadLogSize();
+
+                // Show success in result area if in maintenance modal
+                const resultDiv = document.getElementById('cleanup-result');
+                if (resultDiv) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success py-2 mb-0">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Logs cleared successfully
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            alert('Failed to clear logs: ' + error.message);
+        }
+    }
+
+    async loadLogSize() {
+        try {
+            const response = await fetch('/api/logs/size');
+            const data = await response.json();
+
+            const sizeInfo = document.getElementById('log-size-info');
+            if (sizeInfo) {
+                sizeInfo.textContent = `(${data.current_size_formatted})`;
+            }
+        } catch (error) {
+            console.error('Failed to load log size:', error);
         }
     }
 

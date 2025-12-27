@@ -11,6 +11,7 @@ This module creates and configures the FastAPI application, including:
 
 import logging
 from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -20,11 +21,32 @@ from fastapi.templating import Jinja2Templates
 from app.database import init_db
 from app.routers import downloads, websocket, subscriptions
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# Configure logging with both console and file output
+LOG_DIR = Path("./data")
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "app.log"
+
+# Create formatter
+log_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+# Configure root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+root_logger.addHandler(console_handler)
+
+# File handler with rotation (max 5MB, keep 3 backups)
+file_handler = RotatingFileHandler(
+    LOG_FILE,
+    maxBytes=5 * 1024 * 1024,
+    backupCount=3,
+    encoding="utf-8"
 )
+file_handler.setFormatter(log_formatter)
+root_logger.addHandler(file_handler)
 
 
 @asynccontextmanager

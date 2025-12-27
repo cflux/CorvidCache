@@ -640,3 +640,56 @@ body {
         flex-direction: column;
     }
 }
+
+/* Log viewer */
+.log-viewer {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.8rem;
+    background-color: #1a1a2e;
+    color: #e4e4e4;
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.log-viewer .log-line {
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.log-viewer .log-line:last-child {
+    border-bottom: none;
+}
+
+.log-viewer .log-level-info {
+    color: #7dd3e1;
+}
+
+.log-viewer .log-level-warning {
+    color: #ffe066;
+}
+
+.log-viewer .log-level-error {
+    color: #f1939c;
+}
+
+.log-viewer .log-level-debug {
+    color: #a0a0a0;
+}
+
+.log-viewer .log-timestamp {
+    color: #888;
+}
+
+.log-viewer .log-module {
+    color: #b794f4;
+}
+
+/* Light mode log viewer (optional, but dark is default for logs) */
+[data-theme="light"] .log-viewer {
+    background-color: #1a1a2e;
+    color: #e4e4e4;
+}

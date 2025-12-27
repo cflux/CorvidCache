@@ -1051,3 +1051,105 @@ async def update_ytdlp(restart: bool = False):
     except Exception as e:
         logger.error(f"Failed to update yt-dlp: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Logs Endpoints
+
+LOG_FILE = Path("./data/app.log")
+
+
+@router.get("/logs")
+async def get_logs(
+    lines: int = 500,
+    level: Optional[str] = None,
+    search: Optional[str] = None
+):
+    """
+    Get application logs.
+
+    Args:
+        lines: Maximum number of lines to return (default 500, max 5000)
+        level: Filter by log level (INFO, WARNING, ERROR, DEBUG)
+        search: Filter logs containing this text
+    """
+    if not LOG_FILE.exists():
+        return {"logs": [], "total_lines": 0}
+
+    # Limit max lines
+    lines = min(lines, 5000)
+
+    try:
+        with open(LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+
+        # Apply filters
+        filtered_lines = all_lines
+        if level:
+            level_upper = level.upper()
+            filtered_lines = [l for l in filtered_lines if f" - {level_upper} - " in l]
+
+        if search:
+            search_lower = search.lower()
+            filtered_lines = [l for l in filtered_lines if search_lower in l.lower()]
+
+        # Get last N lines (most recent)
+        result_lines = filtered_lines[-lines:]
+
+        return {
+            "logs": [line.rstrip() for line in result_lines],
+            "total_lines": len(all_lines),
+            "filtered_lines": len(filtered_lines),
+            "showing": len(result_lines)
+        }
+    except Exception as e:
+        logger.error(f"Failed to read logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/logs")
+async def clear_logs():
+    """Clear all application logs."""
+    try:
+        if LOG_FILE.exists():
+            # Truncate the file
+            with open(LOG_FILE, "w", encoding="utf-8") as f:
+                f.write("")
+            logger.info("Logs cleared by user")
+            return {"success": True, "message": "Logs cleared"}
+        return {"success": True, "message": "No log file to clear"}
+    except Exception as e:
+        logger.error(f"Failed to clear logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/logs/size")
+async def get_log_size():
+    """Get the current log file size."""
+    try:
+        if LOG_FILE.exists():
+            size = LOG_FILE.stat().st_size
+            # Also check for rotated logs
+            total_size = size
+            for i in range(1, 4):
+                rotated = LOG_FILE.with_suffix(f".log.{i}")
+                if rotated.exists():
+                    total_size += rotated.stat().st_size
+
+            return {
+                "current_size": size,
+                "total_size": total_size,
+                "current_size_formatted": _format_size(size),
+                "total_size_formatted": _format_size(total_size)
+            }
+        return {"current_size": 0, "total_size": 0, "current_size_formatted": "0 B", "total_size_formatted": "0 B"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _format_size(size: int) -> str:
+    """Format bytes to human readable string."""
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size < 1024:
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
