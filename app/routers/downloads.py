@@ -471,35 +471,44 @@ async def cancel_all_active(db: AsyncSession = Depends(get_db)):
     downloads = result.scalars().all()
 
     cancelled_count = 0
+    download_ids = [d.id for d in downloads]
+
     for download in downloads:
         try:
-            # Cancel the download process
-            downloader_service.cancel_download(download.id)
+            download_id = download.id
+            logger.info(f"[Cancel All] Cancelling download {download_id}...")
 
-            # Update status
+            # Update status immediately and commit
             download.status = DownloadStatus.CANCELLED
-            cancelled_count += 1
+            await db.commit()
+
+            # Set cancel flag in downloader service
+            downloader_service.cancel_download(download_id)
 
             # Broadcast cancellation
             await manager.broadcast(
-                {"type": "cancelled", "id": download.id, "status": "cancelled"}
+                {"type": "cancelled", "id": download_id, "status": "cancelled"}
             )
 
             # Cancel asyncio task if exists
-            if download.id in active_tasks:
+            if download_id in active_tasks:
                 try:
-                    active_tasks[download.id].cancel()
-                except Exception:
-                    pass
+                    active_tasks[download_id].cancel()
+                    logger.info(f"[Cancel All] Cancelled task for download {download_id}")
+                except Exception as e:
+                    logger.warning(f"[Cancel All] Error cancelling task {download_id}: {e}")
                 finally:
-                    if download.id in active_tasks:
-                        del active_tasks[download.id]
+                    if download_id in active_tasks:
+                        del active_tasks[download_id]
+
+            cancelled_count += 1
 
         except Exception as e:
             logger.error(f"Error cancelling download {download.id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
-    await db.commit()
-
+    logger.info(f"[Cancel All] Cancelled {cancelled_count} downloads")
     return {"cancelled": cancelled_count}
 
 
