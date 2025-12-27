@@ -639,8 +639,21 @@ class YtdlApp {
                 return;
             }
 
-            // Reverse so newest ends up at top after prepending
-            data.downloads.reverse().forEach(dl => this.addDownloadCard(dl, container));
+            // Sort downloads: active first, then by newest
+            const activeStatuses = ['downloading', 'processing', 'fetching_info', 'queued'];
+            const sortedDownloads = data.downloads.sort((a, b) => {
+                const aActive = activeStatuses.includes(a.status);
+                const bActive = activeStatuses.includes(b.status);
+
+                // Active downloads come first
+                if (aActive && !bActive) return -1;
+                if (!aActive && bActive) return 1;
+
+                // Within same group, sort by ID descending (newest first)
+                return b.id - a.id;
+            });
+
+            sortedDownloads.forEach(dl => this.addDownloadCard(dl, container));
 
             this.updatePaginationControls();
         } catch (error) {
