@@ -138,6 +138,11 @@ class YtdlApp {
         const card = document.querySelector(`[data-download-id="${data.id}"]`);
         if (!card) return;
 
+        // Debug logging for state transitions
+        if (data.type !== 'progress' || data.progress >= 99) {
+            console.log(`[WS ${data.id}] type=${data.type} status=${data.status} progress=${data.progress}`);
+        }
+
         switch (data.type) {
             case 'status':
             case 'info':
@@ -206,6 +211,8 @@ class YtdlApp {
 
     updateStatus(card, status) {
         const badge = card.querySelector('.status-badge');
+        const downloadId = card.getAttribute('data-download-id');
+        console.log(`[Badge ${downloadId}] Updating to: ${status}`);
         badge.className = `badge status-badge status-${status}`;
         badge.textContent = status.replace('_', ' ');
     }
