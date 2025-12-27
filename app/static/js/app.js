@@ -523,15 +523,13 @@ class YtdlApp {
 
             if (!response.ok) throw new Error('Failed to create downloads');
 
-            const downloads = await response.json();
-            downloads.forEach(dl => this.addDownloadCard(dl));
-
             // Close modal and clear input
             bootstrap.Modal.getInstance(document.getElementById('playlist-modal')).hide();
             document.getElementById('url-input').value = '';
 
-            // Switch to downloads tab
+            // Switch to downloads tab and refresh list with pagination
             document.getElementById('downloads-tab').click();
+            this.loadDownloads();
         } catch (error) {
             alert(`Error: ${error.message}`);
         } finally {
@@ -554,11 +552,9 @@ class YtdlApp {
 
         if (!response.ok) throw new Error('Failed to create download');
 
-        const download = await response.json();
-        this.addDownloadCard(download);
-
-        // Switch to downloads tab
+        // Switch to downloads tab and refresh list with pagination
         document.getElementById('downloads-tab').click();
+        this.loadDownloads();
     }
 
     getDownloadOptions() {
