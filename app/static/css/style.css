@@ -367,6 +367,54 @@ body {
     color: var(--text-muted);
 }
 
+/* File tree view */
+.folder-item {
+    margin-bottom: 0.25rem;
+}
+
+.folder-header {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.folder-header:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.folder-name {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.folder-count {
+    font-size: 0.85rem;
+}
+
+.folder-contents {
+    border-left: 2px solid var(--border-color);
+    margin-left: 0.75rem;
+    padding-left: 0.5rem;
+}
+
+.folder-item.expanded > .folder-header .bi-folder-fill {
+    color: #ffc107 !important;
+}
+
+/* Adjust file items in tree view */
+.folder-contents .file-item {
+    border-bottom: none;
+    border-radius: 4px;
+    margin-bottom: 0.25rem;
+}
+
+.folder-contents .file-item:last-child {
+    margin-bottom: 0;
+}
+
 #loading-overlay {
     position: fixed;
     top: 0;

@@ -900,40 +900,135 @@ class YtdlApp {
                 return;
             }
 
-            files.forEach(file => {
-                const div = document.createElement('div');
-                div.className = 'file-item';
+            // Build tree structure from flat file list
+            const tree = this.buildFileTree(files);
 
-                // Split path into folder and filename
-                const parts = file.name.split(/[/\\]/);
-                const fileName = parts.pop();
-                const folder = parts.join('/');
+            // Render the tree
+            const treeHtml = this.renderFileTree(tree, 0);
+            container.innerHTML = treeHtml;
 
-                const thumbnailHtml = file.thumbnail
-                    ? `<img src="${file.thumbnail}" class="file-thumbnail" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                       <div class="file-thumbnail-placeholder" style="display: none;"><i class="bi bi-file-earmark-play"></i></div>`
-                    : `<div class="file-thumbnail-placeholder"><i class="bi bi-file-earmark-play"></i></div>`;
+            // Add click handlers for folder toggles
+            container.querySelectorAll('.folder-toggle').forEach(toggle => {
+                toggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const folderItem = toggle.closest('.folder-item');
+                    const contents = folderItem.querySelector('.folder-contents');
+                    const icon = toggle.querySelector('i');
 
-                div.innerHTML = `
-                    <div class="file-thumbnail-container">
-                        ${thumbnailHtml}
-                    </div>
-                    <div class="file-info">
-                        <div class="file-name">${fileName}</div>
-                        <div class="file-meta">
-                            ${folder ? `<span class="text-primary"><i class="bi bi-folder me-1"></i>${folder}</span> | ` : ''}
-                            ${this.formatFileSize(file.size)} | ${new Date(file.modified).toLocaleString()}
-                        </div>
-                    </div>
-                    <a href="/api/files/${encodeURIComponent(file.name)}" class="btn btn-sm btn-outline-primary" download>
-                        <i class="bi bi-download"></i>
-                    </a>
-                `;
-                container.appendChild(div);
+                    if (contents.style.display === 'none') {
+                        contents.style.display = 'block';
+                        icon.className = 'bi bi-chevron-down me-1';
+                        folderItem.classList.add('expanded');
+                    } else {
+                        contents.style.display = 'none';
+                        icon.className = 'bi bi-chevron-right me-1';
+                        folderItem.classList.remove('expanded');
+                    }
+                });
             });
         } catch (error) {
             console.error('Failed to load files:', error);
         }
+    }
+
+    buildFileTree(files) {
+        const tree = { folders: {}, files: [] };
+
+        files.forEach(file => {
+            const parts = file.name.split(/[/\\]/);
+            let current = tree;
+
+            // Navigate/create folder structure
+            for (let i = 0; i < parts.length - 1; i++) {
+                const folderName = parts[i];
+                if (!current.folders[folderName]) {
+                    current.folders[folderName] = { folders: {}, files: [] };
+                }
+                current = current.folders[folderName];
+            }
+
+            // Add file to current folder
+            current.files.push({
+                name: parts[parts.length - 1],
+                fullPath: file.name,
+                size: file.size,
+                modified: file.modified,
+                thumbnail: file.thumbnail
+            });
+        });
+
+        return tree;
+    }
+
+    renderFileTree(node, depth) {
+        let html = '';
+        const indent = depth * 20;
+
+        // Sort folders alphabetically
+        const folderNames = Object.keys(node.folders).sort((a, b) =>
+            a.toLowerCase().localeCompare(b.toLowerCase())
+        );
+
+        // Render folders first
+        folderNames.forEach(folderName => {
+            const folder = node.folders[folderName];
+            const fileCount = this.countFilesInFolder(folder);
+            const isExpanded = depth === 0; // Auto-expand top level
+
+            html += `
+                <div class="folder-item ${isExpanded ? 'expanded' : ''}" style="margin-left: ${indent}px;">
+                    <div class="folder-header folder-toggle">
+                        <i class="bi bi-chevron-${isExpanded ? 'down' : 'right'} me-1"></i>
+                        <i class="bi bi-folder-fill text-warning me-2"></i>
+                        <span class="folder-name">${folderName}</span>
+                        <span class="folder-count text-muted ms-2">(${fileCount} file${fileCount !== 1 ? 's' : ''})</span>
+                    </div>
+                    <div class="folder-contents" style="display: ${isExpanded ? 'block' : 'none'};">
+                        ${this.renderFileTree(folder, depth + 1)}
+                    </div>
+                </div>
+            `;
+        });
+
+        // Sort files by modified date (newest first)
+        const sortedFiles = [...node.files].sort((a, b) =>
+            new Date(b.modified) - new Date(a.modified)
+        );
+
+        // Render files
+        sortedFiles.forEach(file => {
+            const thumbnailHtml = file.thumbnail
+                ? `<img src="${file.thumbnail}" class="file-thumbnail" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                   <div class="file-thumbnail-placeholder" style="display: none;"><i class="bi bi-file-earmark-play"></i></div>`
+                : `<div class="file-thumbnail-placeholder"><i class="bi bi-file-earmark-play"></i></div>`;
+
+            html += `
+                <div class="file-item" style="margin-left: ${indent}px;">
+                    <div class="file-thumbnail-container">
+                        ${thumbnailHtml}
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-meta">
+                            ${this.formatFileSize(file.size)} | ${new Date(file.modified).toLocaleString()}
+                        </div>
+                    </div>
+                    <a href="/api/files/${encodeURIComponent(file.fullPath)}" class="btn btn-sm btn-outline-primary" download title="Download">
+                        <i class="bi bi-download"></i>
+                    </a>
+                </div>
+            `;
+        });
+
+        return html;
+    }
+
+    countFilesInFolder(folder) {
+        let count = folder.files.length;
+        for (const subFolder of Object.values(folder.folders)) {
+            count += this.countFilesInFolder(subFolder);
+        }
+        return count;
     }
 
     // Utilities
