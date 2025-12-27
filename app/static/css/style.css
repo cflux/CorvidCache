@@ -215,6 +215,10 @@ body {
     background-color: #007bff;
 }
 
+.status-processing {
+    background-color: #fd7e14;
+}
+
 .status-completed {
     background-color: #28a745;
 }

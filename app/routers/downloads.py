@@ -167,16 +167,32 @@ async def _process_download_inner(download_id: int, url: str, options: dict):
             async def progress_callback(data: dict):
                 try:
                     progress = data.get("progress", 0)
-                    logger.debug(f"[Download {download_id}] Broadcasting progress: {progress:.1f}%")
-                    await manager.broadcast(
-                        {
-                            "type": "progress",
-                            "id": download_id,
-                            "progress": progress,
-                            "speed": data.get("speed"),
-                            "eta": data.get("eta"),
-                        }
-                    )
+                    status = data.get("status", "downloading")
+
+                    if status == "processing":
+                        # Post-processing phase
+                        processing_step = data.get("processing_step", "Processing...")
+                        logger.debug(f"[Download {download_id}] Processing: {processing_step}")
+                        await manager.broadcast(
+                            {
+                                "type": "processing",
+                                "id": download_id,
+                                "progress": 100,
+                                "status": "processing",
+                                "processing_step": processing_step,
+                            }
+                        )
+                    else:
+                        logger.debug(f"[Download {download_id}] Broadcasting progress: {progress:.1f}%")
+                        await manager.broadcast(
+                            {
+                                "type": "progress",
+                                "id": download_id,
+                                "progress": progress,
+                                "speed": data.get("speed"),
+                                "eta": data.get("eta"),
+                            }
+                        )
                 except Exception as e:
                     logger.error(f"[Download {download_id}] Broadcast error: {e}")
 
@@ -184,12 +200,19 @@ async def _process_download_inner(download_id: int, url: str, options: dict):
             def sync_progress_callback(data: dict):
                 current_time = time.time()
                 progress = data.get("progress", 0)
+                status = data.get("status", "downloading")
+
+                # Always broadcast processing status changes immediately
+                if status == "processing":
+                    logger.info(f"[Download {download_id}] Processing: {data.get('processing_step', 'Processing...')}")
+                    asyncio.run_coroutine_threadsafe(progress_callback(data), loop)
+                    return
 
                 # Throttle: update at most every 0.5 seconds OR if progress jumped significantly
                 time_diff = current_time - last_broadcast["time"]
                 progress_diff = progress - last_broadcast["progress"]
 
-                should_broadcast = time_diff >= 0.5 or progress_diff >= 2 or data.get("status") == "finished"
+                should_broadcast = time_diff >= 0.5 or progress_diff >= 2 or status == "finished"
 
                 if should_broadcast:
                     last_broadcast["progress"] = progress
@@ -383,7 +406,7 @@ async def cancel_download(download_id: int, db: AsyncSession = Depends(get_db)):
     if not download:
         raise HTTPException(status_code=404, detail="Download not found")
 
-    if download.status in [DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING, DownloadStatus.FETCHING_INFO]:
+    if download.status in [DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING, DownloadStatus.FETCHING_INFO, DownloadStatus.PROCESSING]:
         # Cancel active download
         logger.info(f"[Download {download_id}] Cancelling download...")
         downloader_service.cancel_download(download_id)
@@ -458,13 +481,14 @@ async def clear_downloads(
 
 @router.post("/downloads/cancel-all")
 async def cancel_all_active(db: AsyncSession = Depends(get_db)):
-    """Cancel all active downloads (queued, fetching_info, downloading)."""
+    """Cancel all active downloads (queued, fetching_info, downloading, processing)."""
     result = await db.execute(
         select(Download).where(
             Download.status.in_([
                 DownloadStatus.QUEUED,
                 DownloadStatus.FETCHING_INFO,
                 DownloadStatus.DOWNLOADING,
+                DownloadStatus.PROCESSING,
             ])
         )
     )

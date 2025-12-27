@@ -176,6 +176,9 @@ class DownloaderService:
             opts["progress_hooks"] = [
                 lambda d: self._progress_hook(d, progress_callback, download_id)
             ]
+            opts["postprocessor_hooks"] = [
+                lambda d: self._postprocessor_hook(d, progress_callback, download_id)
+            ]
 
         return opts
 
@@ -237,6 +240,53 @@ class DownloaderService:
             raise  # Re-raise cancellation
         except Exception as e:
             logger.error(f"Error in progress hook: {e}")
+
+    def _postprocessor_hook(
+        self, d: dict, callback: Callable, download_id: Optional[int]
+    ) -> None:
+        """
+        Handle yt-dlp postprocessor events.
+
+        Called during post-processing phases like merging audio/video,
+        embedding thumbnails, converting formats, etc.
+
+        Args:
+            d: Dictionary with status info from yt-dlp postprocessor.
+            callback: Function to call with progress updates.
+            download_id: Optional download ID for tracking.
+        """
+        try:
+            # Check cancel flag
+            if download_id and self._cancel_flags.get(download_id):
+                logger.info(f"Download {download_id} cancelled via postprocessor hook")
+                raise yt_dlp.utils.DownloadCancelled("Download cancelled by user")
+
+            status = d.get("status")
+            postprocessor = d.get("postprocessor", "")
+
+            if status in ("started", "processing"):
+                # Map postprocessor names to user-friendly descriptions
+                pp_names = {
+                    "Merger": "Merging video and audio",
+                    "FFmpegVideoConvertor": "Converting video format",
+                    "FFmpegExtractAudio": "Extracting audio",
+                    "FFmpegMetadata": "Embedding metadata",
+                    "EmbedThumbnail": "Embedding thumbnail",
+                    "FFmpegEmbedSubtitle": "Embedding subtitles",
+                }
+                description = pp_names.get(postprocessor, f"Processing ({postprocessor})")
+
+                callback(
+                    {
+                        "status": "processing",
+                        "progress": 100,
+                        "processing_step": description,
+                    }
+                )
+        except yt_dlp.utils.DownloadCancelled:
+            raise
+        except Exception as e:
+            logger.error(f"Error in postprocessor hook: {e}")
 
     async def extract_info(self, url: str, download_id: Optional[int] = None, timeout: int = 120) -> dict:
         """

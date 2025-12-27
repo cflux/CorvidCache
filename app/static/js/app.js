@@ -165,6 +165,15 @@ class YtdlApp {
                 statsEl.textContent = statsText;
                 break;
 
+            case 'processing':
+                this.updateStatus(card, 'processing');
+                const procProgressBar = card.querySelector('.progress-bar');
+                const procStatsEl = card.querySelector('.stats');
+                procProgressBar.style.width = '100%';
+                procProgressBar.textContent = '100%';
+                procStatsEl.textContent = data.processing_step || 'Processing...';
+                break;
+
             case 'completed':
                 this.updateStatus(card, 'completed');
                 card.querySelector('.progress-bar').style.width = '100%';
@@ -710,7 +719,7 @@ class YtdlApp {
         card.className = 'download-card';
         card.dataset.downloadId = download.id;
         const canRetry = download.status === 'failed' || download.status === 'cancelled';
-        const isActive = ['queued', 'fetching_info', 'downloading'].includes(download.status);
+        const isActive = ['queued', 'fetching_info', 'downloading', 'processing'].includes(download.status);
 
         const thumbnailHtml = download.thumbnail
             ? `<img src="${download.thumbnail}" class="download-thumbnail" alt="" onerror="this.style.display='none'">`
@@ -769,7 +778,7 @@ class YtdlApp {
 
         const card = document.querySelector(`[data-download-id="${id}"]`);
         const statusBadge = card?.querySelector('.status-badge');
-        const isActive = statusBadge && ['queued', 'fetching info', 'downloading'].includes(statusBadge.textContent.toLowerCase());
+        const isActive = statusBadge && ['queued', 'fetching info', 'downloading', 'processing'].includes(statusBadge.textContent.toLowerCase());
 
         const message = isActive ? 'Cancel this download?' : 'Remove this download from the list?';
         if (!confirm(message)) return;
@@ -807,7 +816,7 @@ class YtdlApp {
     }
 
     /**
-     * Cancel all active downloads (queued, fetching_info, downloading).
+     * Cancel all active downloads (queued, fetching_info, downloading, processing).
      */
     async cancelAllActive() {
         if (!confirm('Cancel all active downloads?')) return;

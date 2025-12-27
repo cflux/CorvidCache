@@ -23,6 +23,7 @@ class DownloadStatus(str, PyEnum):
         QUEUED: Download is waiting to start.
         FETCHING_INFO: Extracting video metadata from URL.
         DOWNLOADING: Actively downloading the video.
+        PROCESSING: Post-download processing (merging, converting, embedding).
         COMPLETED: Download finished successfully.
         FAILED: Download encountered an error.
         CANCELLED: Download was cancelled by user.
@@ -30,6 +31,7 @@ class DownloadStatus(str, PyEnum):
     QUEUED = "queued"
     FETCHING_INFO = "fetching_info"
     DOWNLOADING = "downloading"
+    PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
