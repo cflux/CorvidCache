@@ -40,6 +40,9 @@
                 <span id="cookie-status" class="badge bg-secondary me-2" title="YouTube authentication" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#cookies-modal">
                     <i class="bi bi-person-fill"></i> <span id="cookie-status-text">No Auth</span>
                 </span>
+                <span id="download-status" class="badge bg-secondary me-2" title="Download queue status" style="display: none;">
+                    <i class="bi bi-download"></i> <span id="download-status-text">0 / 0</span>
+                </span>
                 <span id="ws-status" class="badge bg-danger me-2" title="WebSocket status">
                     <i class="bi bi-circle-fill"></i>
                 </span>
@@ -214,8 +217,8 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <div class="p-3 border-bottom bg-light">
-                        <div class="d-flex gap-2 flex-wrap">
+                    <div class="p-3 border-bottom bg-light playlist-controls-sticky">
+                        <div class="d-flex gap-2 flex-wrap align-items-center">
                             <button class="btn btn-sm btn-outline-secondary" id="select-all-btn">
                                 <i class="bi bi-check-all"></i> Select All
                             </button>
@@ -228,7 +231,9 @@
                             <button class="btn btn-sm btn-outline-secondary" id="deselect-members-btn" title="Deselect members-only videos">
                                 <i class="bi bi-star-fill" style="color: #9333ea;"></i> Deselect Members
                             </button>
-                            <span class="ms-auto align-self-center text-muted" id="selected-count"></span>
+                            <span class="ms-auto badge bg-primary" id="selected-count-badge">
+                                <i class="bi bi-check2-square"></i> <span id="selected-count">0</span> selected
+                            </span>
                         </div>
                     </div>
                     <div id="playlist-entries"></div>

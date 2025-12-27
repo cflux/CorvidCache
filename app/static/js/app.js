@@ -162,6 +162,7 @@ class YtdlApp {
                     }
                 }
                 this.updateStatus(card, data.status);
+                this.updateQueueStatus(); // Update navbar status
                 break;
 
             case 'progress':
@@ -191,12 +192,14 @@ class YtdlApp {
                 card.querySelector('.progress-bar').textContent = '100%';
                 card.querySelector('.stats').textContent = 'Download complete';
                 this.loadFiles(); // Refresh file list
+                this.updateQueueStatus(); // Update navbar status
                 break;
 
             case 'error':
                 this.updateStatus(card, 'failed');
                 card.querySelector('.stats').textContent = `Error: ${data.error}`;
                 this.updateCardButtons(card, data.id, 'failed');
+                this.updateQueueStatus(); // Update navbar status
                 break;
 
             case 'cancelled':
@@ -205,6 +208,7 @@ class YtdlApp {
                 card.querySelector('.progress-bar').style.width = '0%';
                 card.querySelector('.progress-bar').textContent = '';
                 this.updateCardButtons(card, data.id, 'cancelled');
+                this.updateQueueStatus(); // Update navbar status
                 break;
         }
     }
@@ -489,8 +493,7 @@ class YtdlApp {
 
     updateSelectedCount() {
         const checked = document.querySelectorAll('#playlist-entries input[type="checkbox"]:checked').length;
-        const total = document.querySelectorAll('#playlist-entries input[type="checkbox"]').length;
-        document.getElementById('selected-count').textContent = `${checked} of ${total} selected`;
+        document.getElementById('selected-count').textContent = checked;
     }
 
     async downloadSelectedFromPlaylist() {
@@ -652,8 +655,41 @@ class YtdlApp {
             sortedDownloads.forEach(dl => this.addDownloadCard(dl, container));
 
             this.updatePaginationControls();
+            this.updateQueueStatus();
         } catch (error) {
             console.error('Failed to load downloads:', error);
+        }
+    }
+
+    async updateQueueStatus() {
+        try {
+            const response = await fetch('/api/downloads?page=1&limit=1000');
+            const data = await response.json();
+
+            const activeStatuses = ['downloading', 'processing', 'fetching_info'];
+            const queuedStatus = 'queued';
+
+            let inProgress = 0;
+            let queued = 0;
+
+            data.downloads.forEach(dl => {
+                if (activeStatuses.includes(dl.status)) inProgress++;
+                else if (dl.status === queuedStatus) queued++;
+            });
+
+            const statusEl = document.getElementById('download-status');
+            const textEl = document.getElementById('download-status-text');
+
+            if (inProgress > 0 || queued > 0) {
+                statusEl.style.display = '';
+                textEl.textContent = `${inProgress} active / ${queued} queued`;
+                statusEl.className = 'badge me-2';
+                statusEl.style.backgroundColor = inProgress > 0 ? '#007bff' : '#6c757d';
+            } else {
+                statusEl.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Failed to update queue status:', error);
         }
     }
 

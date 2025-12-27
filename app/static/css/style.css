@@ -232,6 +232,15 @@ body {
     color: #212529 !important;
 }
 
+/* Sticky playlist controls */
+.playlist-controls-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-secondary) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+}
+
 .playlist-entry {
     display: flex;
     align-items: center;
