@@ -31,6 +31,9 @@
                 <button class="theme-toggle me-2" title="Settings & Maintenance" data-bs-toggle="modal" data-bs-target="#maintenance-modal">
                     <i class="bi bi-gear-fill"></i>
                 </button>
+                <span class="badge me-2" style="background-color: var(--primary-color);" title="Corvid Cache version">
+                    <i class="bi bi-app"></i> v{{ app_version }}
+                </span>
                 <span id="ytdlp-version" class="badge bg-secondary me-2" title="yt-dlp version" style="cursor: pointer;" onclick="app.showVersionInfo()">
                     <i class="bi bi-box-seam"></i> <span id="ytdlp-version-text">...</span>
                 </span>

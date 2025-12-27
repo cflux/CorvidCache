@@ -64,11 +64,14 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Application version
+APP_VERSION = "1.0.0"
+
 # Create FastAPI application instance
 app = FastAPI(
     title="Corvid Cache",
     description="Self-hosted web interface for yt-dlp",
-    version="1.0.0",
+    version=APP_VERSION,
     lifespan=lifespan,
 )
 
@@ -96,7 +99,10 @@ async def index(request: Request):
     Returns the index.html template which contains the full
     single-page application UI.
     """
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "app_version": APP_VERSION
+    })
 
 
 if __name__ == "__main__":
