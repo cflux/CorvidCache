@@ -5,10 +5,14 @@ Provides async SQLAlchemy engine setup, session factory, and
 FastAPI dependency for database access.
 """
 
+import logging
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Create async database engine
 engine = create_async_engine(settings.database_url, echo=False)
@@ -36,6 +40,27 @@ async def get_db():
         yield session
 
 
+async def run_migrations(conn):
+    """
+    Run database migrations for schema changes.
+
+    Adds new columns to existing tables if they don't exist.
+    """
+    # Migration: Add source column to downloads table
+    try:
+        await conn.execute(text("SELECT source FROM downloads LIMIT 1"))
+    except Exception:
+        logger.info("Adding 'source' column to downloads table...")
+        await conn.execute(text("ALTER TABLE downloads ADD COLUMN source VARCHAR(50)"))
+
+    # Migration: Add source column to downloaded_videos table
+    try:
+        await conn.execute(text("SELECT source FROM downloaded_videos LIMIT 1"))
+    except Exception:
+        logger.info("Adding 'source' column to downloaded_videos table...")
+        await conn.execute(text("ALTER TABLE downloaded_videos ADD COLUMN source VARCHAR(50)"))
+
+
 async def init_db():
     """
     Initialize the database by creating all tables.
@@ -46,3 +71,5 @@ async def init_db():
     """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Run migrations for existing tables
+        await run_migrations(conn)
