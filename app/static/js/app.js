@@ -1086,9 +1086,7 @@ class YtdlApp {
 
         const info = sources[source] || { icon: 'bi-globe', color: '#6c757d', name: source };
 
-        return `<span class="badge source-badge" style="background-color: ${info.color};" title="${info.name}">
-            <i class="${info.icon}"></i>
-        </span>`;
+        return `<span class="badge source-badge" style="background-color: ${info.color};" title="${info.name}"><i class="${info.icon}"></i></span>`;
     }
 
     // Cookie Management
