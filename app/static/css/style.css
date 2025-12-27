@@ -415,6 +415,21 @@ body {
     margin-bottom: 0;
 }
 
+/* Source badge */
+.source-badge {
+    font-size: 0.7rem;
+    padding: 0.2em 0.4em;
+    vertical-align: middle;
+}
+
+.source-badge i {
+    font-size: 0.8rem;
+}
+
+.file-name .source-badge {
+    margin-right: 0.5rem;
+}
+
 #loading-overlay {
     position: fixed;
     top: 0;

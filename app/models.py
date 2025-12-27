@@ -50,6 +50,7 @@ class Download(Base):
         url: Original URL submitted for download.
         title: Video title (populated after metadata extraction).
         thumbnail: URL to video thumbnail image.
+        source: Platform/extractor name (e.g., "youtube", "vimeo").
         status: Current download state (see DownloadStatus).
         progress: Download progress percentage (0-100).
         speed: Current download speed (e.g., "1.5 MiB/s").
@@ -67,6 +68,7 @@ class Download(Base):
     url: Mapped[str] = mapped_column(String(500))
     title: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     thumbnail: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     status: Mapped[DownloadStatus] = mapped_column(
         Enum(DownloadStatus), default=DownloadStatus.QUEUED
     )
@@ -92,6 +94,7 @@ class DownloadedVideo(Base):
         video_id: Platform-specific video identifier (unique).
         title: Video title at time of download.
         channel: Channel/uploader name.
+        source: Platform/extractor name (e.g., "youtube", "vimeo").
         downloaded_at: Timestamp of successful download.
         file_path: Path to file (may be outdated if file moved/deleted).
     """
@@ -101,6 +104,7 @@ class DownloadedVideo(Base):
     video_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     title: Mapped[str] = mapped_column(String(500))
     channel: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     downloaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     file_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
 

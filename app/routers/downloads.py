@@ -144,6 +144,7 @@ async def _process_download_inner(download_id: int, url: str, options: dict):
             download.video_id = info.get("id")
             download.title = info.get("title", "Unknown")
             download.thumbnail = info.get("thumbnail")
+            download.source = info.get("extractor_key") or info.get("extractor", "").split(":")[0]
             download.status = DownloadStatus.DOWNLOADING
             await db.commit()
             logger.info(f"[Download {download_id}] Video info extracted: {download.title}")
@@ -155,6 +156,7 @@ async def _process_download_inner(download_id: int, url: str, options: dict):
                     "video_id": download.video_id,
                     "title": download.title,
                     "thumbnail": download.thumbnail,
+                    "source": download.source,
                     "status": "downloading",
                 }
             )
@@ -248,6 +250,7 @@ async def _process_download_inner(download_id: int, url: str, options: dict):
                             video_id=video_id,
                             title=result.get("title") or download.title,
                             channel=result.get("channel"),
+                            source=download.source,
                             file_path=result.get("filename"),
                         )
                         db.add(downloaded_video)
@@ -623,36 +626,35 @@ async def list_files(db: AsyncSession = Depends(get_db)):
     """List all downloaded files including those in subfolders."""
     # Get all downloads with thumbnails for lookup
     result = await db.execute(
-        select(Download.output_path, Download.thumbnail).where(
-            Download.output_path.isnot(None),
-            Download.thumbnail.isnot(None)
+        select(Download.output_path, Download.thumbnail, Download.source).where(
+            Download.output_path.isnot(None)
         )
     )
     # Normalize paths for lookup (handle both / and \ separators, full and relative paths)
-    thumbnail_map = {}
+    file_info_map = {}  # Maps path -> {thumbnail, source}
     downloads_dir_str = str(settings.downloads_dir.resolve()).replace("\\", "/")
     for row in result.fetchall():
         path = row[0]
-        thumbnail = row[1]
+        info = {"thumbnail": row[1], "source": row[2]}
         # Normalize to forward slashes
         normalized = path.replace("\\", "/")
 
         # Store with original path
-        thumbnail_map[normalized] = thumbnail
-        thumbnail_map[path] = thumbnail
+        file_info_map[normalized] = info
+        file_info_map[path] = info
 
         # Also try to extract relative path if it's a full path
         if normalized.startswith(downloads_dir_str):
             rel_path = normalized[len(downloads_dir_str):].lstrip("/")
-            thumbnail_map[rel_path] = thumbnail
+            file_info_map[rel_path] = info
 
         # Also try with ./downloads prefix stripped
         if normalized.startswith("./downloads/"):
             rel_path = normalized[12:]  # len("./downloads/") = 12
-            thumbnail_map[rel_path] = thumbnail
+            file_info_map[rel_path] = info
         elif normalized.startswith("downloads/"):
             rel_path = normalized[10:]  # len("downloads/") = 10
-            thumbnail_map[rel_path] = thumbnail
+            file_info_map[rel_path] = info
 
     files = []
     downloads_path = settings.downloads_dir
@@ -667,15 +669,16 @@ async def list_files(db: AsyncSession = Depends(get_db)):
                 # Normalize for lookup
                 normalized_path = relative_path_str.replace("\\", "/")
 
-                # Look up thumbnail by matching output_path
-                thumbnail = thumbnail_map.get(normalized_path) or thumbnail_map.get(relative_path_str)
+                # Look up file info by matching output_path
+                info = file_info_map.get(normalized_path) or file_info_map.get(relative_path_str) or {}
 
                 files.append(
                     FileInfo(
                         name=relative_path_str,
                         size=stat.st_size,
                         modified=datetime.fromtimestamp(stat.st_mtime),
-                        thumbnail=thumbnail,
+                        thumbnail=info.get("thumbnail"),
+                        source=info.get("source"),
                     )
                 )
     return sorted(files, key=lambda f: f.modified, reverse=True)

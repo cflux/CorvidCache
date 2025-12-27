@@ -150,6 +150,12 @@ class YtdlApp {
                         container.innerHTML = `<img src="${data.thumbnail}" class="download-thumbnail" alt="" onerror="this.style.display='none'">`;
                     }
                 }
+                if (data.source) {
+                    const badgeContainer = card.querySelector('.d-flex.gap-1');
+                    if (badgeContainer && !badgeContainer.querySelector('.source-badge')) {
+                        badgeContainer.insertAdjacentHTML('afterbegin', this.getSourceBadge(data.source));
+                    }
+                }
                 this.updateStatus(card, data.status);
                 break;
 
@@ -726,6 +732,8 @@ class YtdlApp {
             ? `<img src="${download.thumbnail}" class="download-thumbnail" alt="" onerror="this.style.display='none'">`
             : '<div class="download-thumbnail-placeholder"><i class="bi bi-film"></i></div>';
 
+        const sourceHtml = download.source ? this.getSourceBadge(download.source) : '';
+
         card.innerHTML = `
             <div class="d-flex gap-3">
                 <div class="download-thumbnail-container">
@@ -734,7 +742,10 @@ class YtdlApp {
                 <div class="flex-grow-1">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div class="title">${download.title || 'Fetching info...'}</div>
-                        <span class="badge status-badge status-${download.status}">${download.status.replace('_', ' ')}</span>
+                        <div class="d-flex gap-1">
+                            ${sourceHtml}
+                            <span class="badge status-badge status-${download.status}">${download.status.replace('_', ' ')}</span>
+                        </div>
                     </div>
                     <div class="url">${download.url}</div>
                     <div class="progress mb-2">
@@ -953,7 +964,8 @@ class YtdlApp {
                 fullPath: file.name,
                 size: file.size,
                 modified: file.modified,
-                thumbnail: file.thumbnail
+                thumbnail: file.thumbnail,
+                source: file.source
             });
         });
 
@@ -973,7 +985,7 @@ class YtdlApp {
         folderNames.forEach(folderName => {
             const folder = node.folders[folderName];
             const fileCount = this.countFilesInFolder(folder);
-            const isExpanded = depth === 0; // Auto-expand top level
+            const isExpanded = false; // Start collapsed
 
             html += `
                 <div class="folder-item ${isExpanded ? 'expanded' : ''}" style="margin-left: ${indent}px;">
@@ -1002,13 +1014,15 @@ class YtdlApp {
                    <div class="file-thumbnail-placeholder" style="display: none;"><i class="bi bi-file-earmark-play"></i></div>`
                 : `<div class="file-thumbnail-placeholder"><i class="bi bi-file-earmark-play"></i></div>`;
 
+            const sourceHtml = file.source ? this.getSourceBadge(file.source) : '';
+
             html += `
                 <div class="file-item" style="margin-left: ${indent}px;">
                     <div class="file-thumbnail-container">
                         ${thumbnailHtml}
                     </div>
                     <div class="file-info">
-                        <div class="file-name">${file.name}</div>
+                        <div class="file-name">${sourceHtml} ${file.name}</div>
                         <div class="file-meta">
                             ${this.formatFileSize(file.size)} | ${new Date(file.modified).toLocaleString()}
                         </div>
@@ -1042,6 +1056,39 @@ class YtdlApp {
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    getSourceBadge(source) {
+        if (!source) return '';
+
+        // Map source names to display info
+        const sources = {
+            'Youtube': { icon: 'bi-youtube', color: '#ff0000', name: 'YouTube' },
+            'youtube': { icon: 'bi-youtube', color: '#ff0000', name: 'YouTube' },
+            'Vimeo': { icon: 'bi-vimeo', color: '#1ab7ea', name: 'Vimeo' },
+            'vimeo': { icon: 'bi-vimeo', color: '#1ab7ea', name: 'Vimeo' },
+            'Twitch': { icon: 'bi-twitch', color: '#9146ff', name: 'Twitch' },
+            'twitch': { icon: 'bi-twitch', color: '#9146ff', name: 'Twitch' },
+            'Twitter': { icon: 'bi-twitter-x', color: '#000000', name: 'Twitter/X' },
+            'twitter': { icon: 'bi-twitter-x', color: '#000000', name: 'Twitter/X' },
+            'Reddit': { icon: 'bi-reddit', color: '#ff4500', name: 'Reddit' },
+            'reddit': { icon: 'bi-reddit', color: '#ff4500', name: 'Reddit' },
+            'TikTok': { icon: 'bi-tiktok', color: '#000000', name: 'TikTok' },
+            'tiktok': { icon: 'bi-tiktok', color: '#000000', name: 'TikTok' },
+            'Facebook': { icon: 'bi-facebook', color: '#1877f2', name: 'Facebook' },
+            'facebook': { icon: 'bi-facebook', color: '#1877f2', name: 'Facebook' },
+            'Instagram': { icon: 'bi-instagram', color: '#e4405f', name: 'Instagram' },
+            'instagram': { icon: 'bi-instagram', color: '#e4405f', name: 'Instagram' },
+            'Dailymotion': { icon: 'bi-play-circle', color: '#00aaff', name: 'Dailymotion' },
+            'SoundCloud': { icon: 'bi-soundwave', color: '#ff5500', name: 'SoundCloud' },
+            'Spotify': { icon: 'bi-spotify', color: '#1db954', name: 'Spotify' },
+        };
+
+        const info = sources[source] || { icon: 'bi-globe', color: '#6c757d', name: source };
+
+        return `<span class="badge source-badge" style="background-color: ${info.color};" title="${info.name}">
+            <i class="${info.icon}"></i>
+        </span>`;
     }
 
     // Cookie Management

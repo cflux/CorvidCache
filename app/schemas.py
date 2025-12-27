@@ -53,6 +53,7 @@ class DownloadResponse(BaseModel):
     url: str
     title: Optional[str]
     thumbnail: Optional[str]
+    source: Optional[str]
     status: DownloadStatus
     progress: float
     speed: Optional[str]
@@ -142,6 +143,7 @@ class FileInfo(BaseModel):
     size: int
     modified: datetime
     thumbnail: Optional[str] = None
+    source: Optional[str] = None
 
 
 class SubscriptionCreate(BaseModel):
