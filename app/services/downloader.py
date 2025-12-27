@@ -238,17 +238,42 @@ class DownloaderService:
         except Exception as e:
             logger.error(f"Error in progress hook: {e}")
 
-    async def extract_info(self, url: str) -> dict:
-        """Extract info from URL without downloading."""
+    async def extract_info(self, url: str, download_id: Optional[int] = None, timeout: int = 120) -> dict:
+        """
+        Extract info from URL without downloading.
+
+        Args:
+            url: The URL to extract info from.
+            download_id: Optional download ID for cancellation checking.
+            timeout: Timeout in seconds (default 120).
+
+        Returns:
+            Dictionary containing video/playlist metadata.
+
+        Raises:
+            asyncio.TimeoutError: If extraction takes longer than timeout.
+            Exception: If extraction fails or is cancelled.
+        """
         opts = self._get_base_opts()
         opts["extract_flat"] = "in_playlist"
 
         def _extract():
+            # Check for cancellation before starting
+            if download_id and self._cancel_flags.get(download_id):
+                raise Exception("Download cancelled")
+
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(url, download=False)
 
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _extract)
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(None, _extract),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"Extract info timed out after {timeout}s for URL: {url}")
+            raise Exception(f"Info extraction timed out after {timeout} seconds")
 
     async def get_playlist_entries(
         self, url: str, downloaded_video_ids: set[str]

@@ -52,9 +52,33 @@ router = APIRouter(prefix="/api", tags=["downloads"])
 # Track active download tasks
 active_tasks: dict[int, asyncio.Task] = {}
 
+# Semaphore to limit concurrent downloads
+download_semaphore: Optional[asyncio.Semaphore] = None
+
+
+def get_download_semaphore() -> asyncio.Semaphore:
+    """Get or create the download semaphore."""
+    global download_semaphore
+    if download_semaphore is None:
+        download_semaphore = asyncio.Semaphore(settings.max_concurrent_downloads)
+    return download_semaphore
+
 
 async def process_download(download_id: int, url: str, options: dict):
     """Background task to process a download."""
+    from app.database import async_session
+    from app.schemas import DownloadOptions
+
+    # Use semaphore to limit concurrent downloads
+    semaphore = get_download_semaphore()
+
+    logger.info(f"[Download {download_id}] Waiting for download slot...")
+    async with semaphore:
+        await _process_download_inner(download_id, url, options)
+
+
+async def _process_download_inner(download_id: int, url: str, options: dict):
+    """Inner download processing logic."""
     from app.database import async_session
     from app.schemas import DownloadOptions
 
@@ -68,6 +92,11 @@ async def process_download(download_id: int, url: str, options: dict):
             logger.error(f"[Download {download_id}] Download record not found in database")
             return
 
+        # Check if already cancelled before starting
+        if download.status == DownloadStatus.CANCELLED:
+            logger.info(f"[Download {download_id}] Already cancelled, skipping")
+            return
+
         # Update status to fetching info
         download.status = DownloadStatus.FETCHING_INFO
         await db.commit()
@@ -76,9 +105,15 @@ async def process_download(download_id: int, url: str, options: dict):
         )
 
         try:
-            # Extract info first to get video_id and title
+            # Extract info first to get video_id and title (with timeout)
             logger.info(f"[Download {download_id}] Extracting video info...")
-            info = await downloader_service.extract_info(url)
+            info = await downloader_service.extract_info(url, download_id=download_id, timeout=120)
+
+            # Check for cancellation after extract
+            await db.refresh(download)
+            if download.status == DownloadStatus.CANCELLED:
+                logger.info(f"[Download {download_id}] Cancelled during info extraction")
+                return
             download.video_id = info.get("id")
             download.title = info.get("title", "Unknown")
             download.thumbnail = info.get("thumbnail")
@@ -392,6 +427,53 @@ async def clear_downloads(
     await db.commit()
 
     return {"deleted": count}
+
+
+@router.post("/downloads/cancel-all")
+async def cancel_all_active(db: AsyncSession = Depends(get_db)):
+    """Cancel all active downloads (queued, fetching_info, downloading)."""
+    result = await db.execute(
+        select(Download).where(
+            Download.status.in_([
+                DownloadStatus.QUEUED,
+                DownloadStatus.FETCHING_INFO,
+                DownloadStatus.DOWNLOADING,
+            ])
+        )
+    )
+    downloads = result.scalars().all()
+
+    cancelled_count = 0
+    for download in downloads:
+        try:
+            # Cancel the download process
+            downloader_service.cancel_download(download.id)
+
+            # Update status
+            download.status = DownloadStatus.CANCELLED
+            cancelled_count += 1
+
+            # Broadcast cancellation
+            await manager.broadcast(
+                {"type": "cancelled", "id": download.id, "status": "cancelled"}
+            )
+
+            # Cancel asyncio task if exists
+            if download.id in active_tasks:
+                try:
+                    active_tasks[download.id].cancel()
+                except Exception:
+                    pass
+                finally:
+                    if download.id in active_tasks:
+                        del active_tasks[download.id]
+
+        except Exception as e:
+            logger.error(f"Error cancelling download {download.id}: {e}")
+
+    await db.commit()
+
+    return {"cancelled": cancelled_count}
 
 
 @router.post("/downloads/{download_id}/retry", response_model=DownloadResponse)

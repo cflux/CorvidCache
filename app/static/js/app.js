@@ -806,6 +806,31 @@ class YtdlApp {
         }
     }
 
+    /**
+     * Cancel all active downloads (queued, fetching_info, downloading).
+     */
+    async cancelAllActive() {
+        if (!confirm('Cancel all active downloads?')) return;
+
+        try {
+            const response = await fetch('/api/downloads/cancel-all', { method: 'POST' });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to cancel downloads');
+            }
+
+            const result = await response.json();
+            console.log(`Cancelled ${result.cancelled} downloads`);
+
+            // Refresh the downloads list
+            this.loadDownloads();
+
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+
     async clearDownloads(status = null) {
         const statusLabels = {
             'completed': 'completed',
