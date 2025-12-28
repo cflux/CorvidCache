@@ -15,4 +15,6 @@ services:
       - YTDL_MAX_CONCURRENT_DOWNLOADS=3
       - YTDL_RUNNING_IN_DOCKER=true
       - UMASK=000
+      - PUID=99
+      - PGID=100
     restart: unless-stopped

@@ -1,8 +1,9 @@
 FROM python:3.11-slim
 
-# Install ffmpeg and other dependencies
+# Install ffmpeg, gosu, and other dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -27,6 +28,8 @@ RUN mkdir -p /app/data /app/downloads
 ENV YTDL_DATABASE_URL=sqlite+aiosqlite:///./data/ytdl.db
 ENV YTDL_DOWNLOADS_DIR=/app/downloads
 ENV UMASK=000
+ENV PUID=99
+ENV PGID=100
 
 # Expose port
 EXPOSE 8080
