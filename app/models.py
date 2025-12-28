@@ -95,6 +95,7 @@ class DownloadedVideo(Base):
         title: Video title at time of download.
         channel: Channel/uploader name.
         source: Platform/extractor name (e.g., "youtube", "vimeo").
+        thumbnail: URL to video thumbnail image.
         downloaded_at: Timestamp of successful download.
         file_path: Path to file (may be outdated if file moved/deleted).
     """
@@ -105,6 +106,7 @@ class DownloadedVideo(Base):
     title: Mapped[str] = mapped_column(String(500))
     channel: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    thumbnail: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     downloaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     file_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
 

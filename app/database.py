@@ -74,6 +74,13 @@ async def run_migrations(conn):
         logger.info("Adding 'include_members' column to subscriptions table...")
         await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN include_members BOOLEAN DEFAULT 1"))
 
+    # Migration: Add thumbnail column to downloaded_videos table
+    try:
+        await conn.execute(text("SELECT thumbnail FROM downloaded_videos LIMIT 1"))
+    except Exception:
+        logger.info("Adding 'thumbnail' column to downloaded_videos table...")
+        await conn.execute(text("ALTER TABLE downloaded_videos ADD COLUMN thumbnail VARCHAR(500)"))
+
 
 async def init_db():
     """

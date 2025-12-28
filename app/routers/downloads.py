@@ -251,6 +251,7 @@ async def _process_download_inner(download_id: int, url: str, options: dict):
                             title=result.get("title") or download.title,
                             channel=result.get("channel"),
                             source=download.source,
+                            thumbnail=download.thumbnail,
                             file_path=result.get("filename"),
                         )
                         db.add(downloaded_video)
@@ -655,6 +656,38 @@ async def list_files(db: AsyncSession = Depends(get_db)):
         elif normalized.startswith("downloads/"):
             rel_path = normalized[10:]  # len("downloads/") = 10
             file_info_map[rel_path] = info
+
+    # Also get info from DownloadedVideo history (fallback for cleared downloads)
+    history_result = await db.execute(
+        select(DownloadedVideo.file_path, DownloadedVideo.thumbnail, DownloadedVideo.source).where(
+            DownloadedVideo.file_path.isnot(None)
+        )
+    )
+    for row in history_result.fetchall():
+        path = row[0]
+        if not path:
+            continue
+        info = {"thumbnail": row[1], "source": row[2]}
+        normalized = path.replace("\\", "/")
+
+        # Only add if not already in map (downloads table takes priority)
+        if normalized not in file_info_map:
+            file_info_map[normalized] = info
+            file_info_map[path] = info
+
+            if normalized.startswith(downloads_dir_str):
+                rel_path = normalized[len(downloads_dir_str):].lstrip("/")
+                if rel_path not in file_info_map:
+                    file_info_map[rel_path] = info
+
+            if normalized.startswith("./downloads/"):
+                rel_path = normalized[12:]
+                if rel_path not in file_info_map:
+                    file_info_map[rel_path] = info
+            elif normalized.startswith("downloads/"):
+                rel_path = normalized[10:]
+                if rel_path not in file_info_map:
+                    file_info_map[rel_path] = info
 
     files = []
     downloads_path = settings.downloads_dir
