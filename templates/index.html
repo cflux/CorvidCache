@@ -150,40 +150,54 @@
 
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="downloads" role="tabpanel">
-                    <div class="d-flex justify-content-between align-items-center mb-3" id="downloads-actions">
-                        <div class="d-flex align-items-center gap-2">
-                            <select class="form-select form-select-sm" id="status-filter" style="width: auto;" onchange="app.filterByStatus()">
-                                <option value="">All Status</option>
-                                <option value="downloading">Downloading</option>
-                                <option value="processing">Processing</option>
-                                <option value="queued">Queued</option>
-                                <option value="completed">Completed</option>
-                                <option value="failed">Failed</option>
-                                <option value="cancelled">Cancelled</option>
-                            </select>
+                    <!-- In Progress Section -->
+                    <div id="in-progress-section">
+                        <div class="d-flex justify-content-between align-items-center mb-3" id="downloads-actions">
+                            <h6 class="mb-0 text-muted"><i class="bi bi-arrow-repeat me-1"></i>In Progress</h6>
                             <button class="btn btn-sm btn-danger" onclick="app.cancelAllActive()" title="Cancel all active downloads">
                                 <i class="bi bi-stop-circle me-1"></i>Cancel All Active
                             </button>
                         </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-success" onclick="app.clearDownloads('completed')" title="Clear completed downloads">
-                                <i class="bi bi-check-circle me-1"></i>Clear Completed
-                            </button>
-                            <button class="btn btn-sm btn-warning" onclick="app.clearDownloads('cancelled')" title="Clear cancelled downloads">
-                                <i class="bi bi-x-circle me-1"></i>Clear Cancelled
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="app.clearDownloads('failed')" title="Clear failed downloads">
-                                <i class="bi bi-exclamation-circle me-1"></i>Clear Failed
-                            </button>
-                            <button class="btn btn-sm btn-primary" onclick="app.clearDownloads()" title="Clear all finished downloads">
-                                <i class="bi bi-trash me-1"></i>Clear All
-                            </button>
+                        <div id="in-progress-list">
+                            <div class="empty-state empty-state-small">
+                                <i class="bi bi-check-circle"></i>
+                                <p>No active downloads</p>
+                            </div>
                         </div>
                     </div>
-                    <div id="downloads-list">
-                        <div class="empty-state">
-                            <i class="bi bi-download"></i>
-                            <p>No downloads yet</p>
+
+                    <!-- History Section -->
+                    <div id="history-section" class="mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3" id="history-actions">
+                            <div class="d-flex align-items-center gap-2">
+                                <h6 class="mb-0 text-muted"><i class="bi bi-clock-history me-1"></i>History</h6>
+                                <select class="form-select form-select-sm" id="status-filter" style="width: auto;" onchange="app.filterByStatus()">
+                                    <option value="">All</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="failed">Failed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-success" onclick="app.clearDownloads('completed')" title="Clear completed downloads">
+                                    <i class="bi bi-check-circle me-1"></i>Clear Completed
+                                </button>
+                                <button class="btn btn-sm btn-warning" onclick="app.clearDownloads('cancelled')" title="Clear cancelled downloads">
+                                    <i class="bi bi-x-circle me-1"></i>Clear Cancelled
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="app.clearDownloads('failed')" title="Clear failed downloads">
+                                    <i class="bi bi-exclamation-circle me-1"></i>Clear Failed
+                                </button>
+                                <button class="btn btn-sm btn-primary" onclick="app.clearDownloads()" title="Clear all finished downloads">
+                                    <i class="bi bi-trash me-1"></i>Clear All
+                                </button>
+                            </div>
+                        </div>
+                        <div id="history-list">
+                            <div class="empty-state">
+                                <i class="bi bi-download"></i>
+                                <p>No download history</p>
+                            </div>
                         </div>
                     </div>
                 </div>

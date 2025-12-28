@@ -374,16 +374,21 @@ async def create_batch_download(
 
 @router.get("/downloads")
 async def list_downloads(
-    status: Optional[DownloadStatus] = None,
+    status: Optional[str] = None,
     page: int = 1,
     limit: int = 25,
     db: AsyncSession = Depends(get_db),
 ):
-    """List all downloads with pagination."""
+    """List all downloads with pagination. Status can be a single value or comma-separated list."""
     # Build base query
     base_query = select(Download)
     if status:
-        base_query = base_query.where(Download.status == status)
+        # Support comma-separated status values
+        status_list = [s.strip() for s in status.split(",")]
+        if len(status_list) == 1:
+            base_query = base_query.where(Download.status == status_list[0])
+        else:
+            base_query = base_query.where(Download.status.in_(status_list))
 
     # Get total count
     count_query = select(func.count()).select_from(base_query.subquery())

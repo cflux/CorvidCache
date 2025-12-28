@@ -165,7 +165,6 @@ class YtdlApp {
                 }
                 this.updateStatus(card, data.status);
                 this.updateQueueStatus(); // Update navbar status
-                this.refreshIfFiltered(); // Refresh list if filter active
                 break;
 
             case 'progress':
@@ -187,7 +186,6 @@ class YtdlApp {
                 procProgressBar.style.width = '100%';
                 procProgressBar.textContent = '100%';
                 procStatsEl.textContent = data.processing_step || 'Processing...';
-                this.refreshIfFiltered(); // Refresh list if filter active
                 break;
 
             case 'completed':
@@ -195,17 +193,20 @@ class YtdlApp {
                 card.querySelector('.progress-bar').style.width = '100%';
                 card.querySelector('.progress-bar').textContent = '100%';
                 card.querySelector('.stats').textContent = 'Download complete';
+                this.updateCardButtons(card, data.id, 'completed');
+                this.moveCardToHistory(card);
                 this.loadFiles(); // Refresh file list
                 this.updateQueueStatus(); // Update navbar status
-                this.refreshIfFiltered(); // Refresh list if filter active
+                this.refreshHistoryIfFiltered();
                 break;
 
             case 'error':
                 this.updateStatus(card, 'failed');
                 card.querySelector('.stats').textContent = `Error: ${data.error}`;
                 this.updateCardButtons(card, data.id, 'failed');
+                this.moveCardToHistory(card);
                 this.updateQueueStatus(); // Update navbar status
-                this.refreshIfFiltered(); // Refresh list if filter active
+                this.refreshHistoryIfFiltered();
                 break;
 
             case 'cancelled':
@@ -214,10 +215,51 @@ class YtdlApp {
                 card.querySelector('.progress-bar').style.width = '0%';
                 card.querySelector('.progress-bar').textContent = '';
                 this.updateCardButtons(card, data.id, 'cancelled');
+                this.moveCardToHistory(card);
                 this.updateQueueStatus(); // Update navbar status
-                this.refreshIfFiltered(); // Refresh list if filter active
+                this.refreshHistoryIfFiltered();
                 break;
         }
+    }
+
+    /**
+     * Move a download card from in-progress section to history section.
+     */
+    moveCardToHistory(card) {
+        const historyList = document.getElementById('history-list');
+        const inProgressList = document.getElementById('in-progress-list');
+
+        // Remove empty state from history if present
+        const emptyState = historyList.querySelector('.empty-state');
+        if (emptyState) emptyState.remove();
+
+        // Move card to top of history
+        historyList.prepend(card);
+
+        // Check if in-progress is now empty
+        if (inProgressList.children.length === 0) {
+            inProgressList.innerHTML = `
+                <div class="empty-state empty-state-small">
+                    <i class="bi bi-check-circle"></i>
+                    <p>No active downloads</p>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Refresh history section if a status filter is active.
+     * Debounced to prevent excessive API calls.
+     */
+    refreshHistoryIfFiltered() {
+        if (!this.currentStatusFilter) return;
+
+        if (this._refreshHistoryTimeout) {
+            clearTimeout(this._refreshHistoryTimeout);
+        }
+        this._refreshHistoryTimeout = setTimeout(() => {
+            this.loadHistoryDownloads(this.currentPage);
+        }, 500);
     }
 
     updateStatus(card, status) {
@@ -630,76 +672,88 @@ class YtdlApp {
                 this.currentStatusFilter = statusFilter;
             }
 
-            let url = `/api/downloads?page=${page}&limit=25`;
-            if (this.currentStatusFilter) {
-                url += `&status=${this.currentStatusFilter}`;
-            }
+            // Load in-progress downloads (always unfiltered)
+            await this.loadInProgressDownloads();
 
-            const response = await fetch(url);
-            const data = await response.json();
+            // Load history downloads (with filter and pagination)
+            await this.loadHistoryDownloads(page);
 
-            this.currentPage = data.page;
-            this.totalPages = data.pages;
-
-            const container = document.getElementById('downloads-list');
-            container.innerHTML = '';
-
-            if (data.downloads.length === 0 && data.total === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="bi bi-download"></i>
-                        <p>No downloads yet</p>
-                    </div>
-                `;
-                this.updatePaginationControls();
-                return;
-            }
-
-            // Sort downloads: active first, then by newest
-            const activeStatuses = ['downloading', 'processing', 'fetching_info', 'queued'];
-            const sortedDownloads = data.downloads.sort((a, b) => {
-                const aActive = activeStatuses.includes(a.status);
-                const bActive = activeStatuses.includes(b.status);
-
-                // Active downloads come first
-                if (aActive && !bActive) return -1;
-                if (!aActive && bActive) return 1;
-
-                // Within same group, sort by ID descending (newest first)
-                return b.id - a.id;
-            });
-
-            sortedDownloads.forEach(dl => this.addDownloadCard(dl, container));
-
-            this.updatePaginationControls();
             this.updateQueueStatus();
         } catch (error) {
             console.error('Failed to load downloads:', error);
         }
     }
 
-    /**
-     * Filter downloads by status using the dropdown.
-     */
-    filterByStatus() {
-        const statusFilter = document.getElementById('status-filter').value;
-        this.loadDownloads(1, statusFilter);
+    async loadInProgressDownloads() {
+        const activeStatuses = ['downloading', 'processing', 'fetching_info', 'queued'];
+        const response = await fetch('/api/downloads?page=1&limit=100');
+        const data = await response.json();
+
+        const container = document.getElementById('in-progress-list');
+        container.innerHTML = '';
+
+        const inProgressDownloads = data.downloads
+            .filter(dl => activeStatuses.includes(dl.status))
+            .sort((a, b) => b.id - a.id);
+
+        if (inProgressDownloads.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state empty-state-small">
+                    <i class="bi bi-check-circle"></i>
+                    <p>No active downloads</p>
+                </div>
+            `;
+            return;
+        }
+
+        inProgressDownloads.forEach(dl => this.addDownloadCard(dl, container));
+    }
+
+    async loadHistoryDownloads(page = 1) {
+        const historyStatuses = ['completed', 'failed', 'cancelled'];
+
+        let url = `/api/downloads?page=${page}&limit=25`;
+        if (this.currentStatusFilter && historyStatuses.includes(this.currentStatusFilter)) {
+            url += `&status=${this.currentStatusFilter}`;
+        } else if (!this.currentStatusFilter) {
+            // When no filter, only show history statuses
+            url += `&status=completed,failed,cancelled`;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        this.currentPage = data.page;
+        this.totalPages = data.pages;
+
+        const container = document.getElementById('history-list');
+        container.innerHTML = '';
+
+        if (data.downloads.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="bi bi-download"></i>
+                    <p>No download history</p>
+                </div>
+            `;
+            this.updatePaginationControls();
+            return;
+        }
+
+        // Sort by newest first
+        const sortedDownloads = data.downloads.sort((a, b) => b.id - a.id);
+        sortedDownloads.forEach(dl => this.addDownloadCard(dl, container));
+
+        this.updatePaginationControls();
     }
 
     /**
-     * Refresh downloads list if a status filter is active.
-     * Debounced to prevent excessive API calls during rapid status changes.
+     * Filter history by status using the dropdown.
      */
-    refreshIfFiltered() {
-        if (!this.currentStatusFilter) return;
-
-        // Debounce: only refresh once per 500ms
-        if (this._refreshTimeout) {
-            clearTimeout(this._refreshTimeout);
-        }
-        this._refreshTimeout = setTimeout(() => {
-            this.loadDownloads(this.currentPage);
-        }, 500);
+    filterByStatus() {
+        const statusFilter = document.getElementById('status-filter').value;
+        this.currentStatusFilter = statusFilter;
+        this.loadHistoryDownloads(1);
     }
 
     async updateQueueStatus() {
@@ -739,7 +793,6 @@ class YtdlApp {
     }
 
     updatePaginationControls() {
-        const actionsDiv = document.getElementById('downloads-actions');
         let paginationDiv = document.getElementById('downloads-pagination');
 
         if (this.totalPages <= 1) {
@@ -751,7 +804,7 @@ class YtdlApp {
             paginationDiv = document.createElement('div');
             paginationDiv.id = 'downloads-pagination';
             paginationDiv.className = 'd-flex justify-content-center mt-3';
-            document.getElementById('downloads-list').after(paginationDiv);
+            document.getElementById('history-list').after(paginationDiv);
         }
 
         let paginationHtml = '<nav><ul class="pagination pagination-sm mb-0">';
@@ -808,15 +861,21 @@ class YtdlApp {
 
     addDownloadCard(download, container = null) {
         if (!container) {
-            container = document.getElementById('downloads-list');
+            // Default to in-progress for active downloads, history for completed/failed/cancelled
+            const activeStatuses = ['queued', 'fetching_info', 'downloading', 'processing'];
+            if (activeStatuses.includes(download.status)) {
+                container = document.getElementById('in-progress-list');
+            } else {
+                container = document.getElementById('history-list');
+            }
         }
 
         // Remove empty state if present
         const emptyState = container.querySelector('.empty-state');
         if (emptyState) emptyState.remove();
 
-        // Check if card already exists
-        const existingCard = container.querySelector(`[data-download-id="${download.id}"]`);
+        // Check if card already exists in either section
+        const existingCard = document.querySelector(`[data-download-id="${download.id}"]`);
         if (existingCard) return;
 
         const card = document.createElement('div');
@@ -2006,6 +2065,31 @@ class YtdlApp {
             ? new Date(subscription.last_checked).toLocaleString()
             : 'Never';
 
+        // Calculate next check time
+        let nextCheckText = 'Pending';
+        if (subscription.last_checked && subscription.enabled) {
+            const lastCheckedDate = new Date(subscription.last_checked);
+            const nextCheckDate = new Date(lastCheckedDate.getTime() + subscription.check_interval_hours * 60 * 60 * 1000);
+            const now = new Date();
+
+            if (nextCheckDate <= now) {
+                nextCheckText = 'Due now';
+            } else {
+                const diffMs = nextCheckDate - now;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMins / 60);
+                const remainingMins = diffMins % 60;
+
+                if (diffHours > 0) {
+                    nextCheckText = `in ${diffHours}h ${remainingMins}m`;
+                } else {
+                    nextCheckText = `in ${diffMins}m`;
+                }
+            }
+        } else if (!subscription.enabled) {
+            nextCheckText = 'Paused';
+        }
+
         const intervalText = {
             6: 'Every 6 hours',
             12: 'Every 12 hours',
@@ -2034,9 +2118,12 @@ class YtdlApp {
                         <span class="mx-2">|</span>
                         <i class="bi bi-file-earmark-play me-1"></i>${formatDisplay}
                         <span class="mx-2">|</span>
-                        <i class="bi bi-check2-circle me-1"></i>Last checked: ${lastChecked}
-                        <span class="mx-2">|</span>
                         <i class="bi bi-collection-play me-1"></i>${subscription.last_video_count} videos
+                    </div>
+                    <div class="meta">
+                        <i class="bi bi-check2-circle me-1"></i>Last: ${lastChecked}
+                        <span class="mx-2">|</span>
+                        <i class="bi bi-hourglass-split me-1"></i>Next: ${nextCheckText}
                     </div>
                     ${filterBadges ? `<div class="mt-1">${filterBadges}</div>` : ''}
                     <div class="meta mt-1">

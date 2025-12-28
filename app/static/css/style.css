@@ -468,6 +468,15 @@ body {
     margin-bottom: 1rem;
 }
 
+.empty-state-small {
+    padding: 1.5rem;
+}
+
+.empty-state-small i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
 /* Nav tabs dark mode */
 [data-theme="dark"] .nav-tabs {
     border-color: var(--border-color);
