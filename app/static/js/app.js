@@ -30,6 +30,8 @@ class YtdlApp {
         this.currentPage = 1;
         /** @type {number} Total number of pages for downloads */
         this.totalPages = 1;
+        /** @type {string} Current status filter for downloads */
+        this.currentStatusFilter = '';
         this.init();
     }
 
@@ -616,9 +618,19 @@ class YtdlApp {
         document.getElementById('output-template').value = YtdlApp.DEFAULT_OUTPUT_TEMPLATE;
     }
 
-    async loadDownloads(page = 1) {
+    async loadDownloads(page = 1, statusFilter = null) {
         try {
-            const response = await fetch(`/api/downloads?page=${page}&limit=25`);
+            // Use provided filter or current filter
+            if (statusFilter !== null) {
+                this.currentStatusFilter = statusFilter;
+            }
+
+            let url = `/api/downloads?page=${page}&limit=25`;
+            if (this.currentStatusFilter) {
+                url += `&status=${this.currentStatusFilter}`;
+            }
+
+            const response = await fetch(url);
             const data = await response.json();
 
             this.currentPage = data.page;
@@ -659,6 +671,14 @@ class YtdlApp {
         } catch (error) {
             console.error('Failed to load downloads:', error);
         }
+    }
+
+    /**
+     * Filter downloads by status using the dropdown.
+     */
+    filterByStatus() {
+        const statusFilter = document.getElementById('status-filter').value;
+        this.loadDownloads(1, statusFilter);
     }
 
     async updateQueueStatus() {

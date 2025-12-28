@@ -150,8 +150,17 @@
 
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="downloads" role="tabpanel">
-                    <div class="d-flex justify-content-between mb-3" id="downloads-actions">
-                        <div>
+                    <div class="d-flex justify-content-between align-items-center mb-3" id="downloads-actions">
+                        <div class="d-flex align-items-center gap-2">
+                            <select class="form-select form-select-sm" id="status-filter" style="width: auto;" onchange="app.filterByStatus()">
+                                <option value="">All Status</option>
+                                <option value="downloading">Downloading</option>
+                                <option value="processing">Processing</option>
+                                <option value="queued">Queued</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
                             <button class="btn btn-sm btn-danger" onclick="app.cancelAllActive()" title="Cancel all active downloads">
                                 <i class="bi bi-stop-circle me-1"></i>Cancel All Active
                             </button>
@@ -281,6 +290,7 @@
                                 <label for="subscription-keep-last" class="form-label">Keep Latest Videos</label>
                                 <select class="form-select" id="subscription-keep-last">
                                     <option value="0" selected>All videos</option>
+                                    <option value="1">Last 1 video</option>
                                     <option value="5">Last 5 videos</option>
                                     <option value="10">Last 10 videos</option>
                                     <option value="20">Last 20 videos</option>
