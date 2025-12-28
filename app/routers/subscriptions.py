@@ -23,10 +23,19 @@ router = APIRouter(prefix="/api/subscriptions", tags=["subscriptions"])
 subscription_checker_task: Optional[asyncio.Task] = None
 
 
-async def check_subscription(subscription: Subscription):
+async def check_subscription(subscription_id: int):
     """Check a subscription for new videos and queue downloads."""
     async with async_session() as db:
         try:
+            # Fetch subscription within this session so updates persist
+            result = await db.execute(
+                select(Subscription).where(Subscription.id == subscription_id)
+            )
+            subscription = result.scalar_one_or_none()
+            if not subscription:
+                print(f"Subscription {subscription_id} not found")
+                return 0
+
             # Get already downloaded video IDs
             result = await db.execute(select(DownloadedVideo.video_id))
             downloaded_ids = set(row[0] for row in result.fetchall())
@@ -81,7 +90,7 @@ async def check_subscription(subscription: Subscription):
                         process_download(download.id, video_url, subscription.options)
                     )
 
-            # Update subscription
+            # Update subscription last_checked and video count
             subscription.last_checked = datetime.utcnow()
             subscription.last_video_count = len(entries)
             await db.commit()
@@ -89,7 +98,7 @@ async def check_subscription(subscription: Subscription):
             return len(new_videos)
 
         except Exception as e:
-            print(f"Error checking subscription {subscription.name}: {e}")
+            print(f"Error checking subscription {subscription_id}: {e}")
             return 0
 
 
@@ -114,7 +123,7 @@ async def subscription_checker_loop():
 
                     if should_check:
                         print(f"Checking subscription: {sub.name}")
-                        new_count = await check_subscription(sub)
+                        new_count = await check_subscription(sub.id)
                         if new_count > 0:
                             print(f"Found {new_count} new videos for {sub.name}")
 
@@ -252,5 +261,5 @@ async def check_subscription_now(
     if not subscription:
         raise HTTPException(status_code=404, detail="Subscription not found")
 
-    new_count = await check_subscription(subscription)
+    new_count = await check_subscription(subscription_id)
     return {"new_videos": new_count}
