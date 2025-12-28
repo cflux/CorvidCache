@@ -705,8 +705,12 @@ class YtdlApp {
                 textEl.textContent = `${inProgress} active / ${queued} queued`;
                 statusEl.className = 'badge me-2';
                 statusEl.style.backgroundColor = inProgress > 0 ? '#007bff' : '#6c757d';
+                // Update page title with queue status
+                document.title = `(${inProgress}/${queued}) Corvid Cache`;
             } else {
                 statusEl.style.display = 'none';
+                // Reset page title
+                document.title = 'Corvid Cache';
             }
         } catch (error) {
             console.error('Failed to update queue status:', error);
