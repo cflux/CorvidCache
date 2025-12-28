@@ -257,6 +257,19 @@ async def _process_download_inner(download_id: int, url: str, options: dict):
                         db.add(downloaded_video)
                         await db.commit()
 
+                    # Clean up old failed/cancelled download records for same video
+                    old_downloads = await db.execute(
+                        select(Download).where(
+                            Download.video_id == video_id,
+                            Download.id != download_id,
+                            Download.status.in_([DownloadStatus.FAILED, DownloadStatus.CANCELLED])
+                        )
+                    )
+                    for old_dl in old_downloads.scalars().all():
+                        logger.info(f"[Download {download_id}] Cleaning up old {old_dl.status.value} record {old_dl.id} for video {video_id}")
+                        await db.delete(old_dl)
+                    await db.commit()
+
                 await manager.broadcast(
                     {
                         "type": "completed",
