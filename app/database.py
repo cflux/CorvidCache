@@ -60,6 +60,20 @@ async def run_migrations(conn):
         logger.info("Adding 'source' column to downloaded_videos table...")
         await conn.execute(text("ALTER TABLE downloaded_videos ADD COLUMN source VARCHAR(50)"))
 
+    # Migration: Add keep_last_n column to subscriptions table
+    try:
+        await conn.execute(text("SELECT keep_last_n FROM subscriptions LIMIT 1"))
+    except Exception:
+        logger.info("Adding 'keep_last_n' column to subscriptions table...")
+        await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN keep_last_n INTEGER"))
+
+    # Migration: Add include_members column to subscriptions table
+    try:
+        await conn.execute(text("SELECT include_members FROM subscriptions LIMIT 1"))
+    except Exception:
+        logger.info("Adding 'include_members' column to subscriptions table...")
+        await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN include_members BOOLEAN DEFAULT 1"))
+
 
 async def init_db():
     """

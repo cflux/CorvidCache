@@ -152,6 +152,8 @@ class SubscriptionCreate(BaseModel):
     name: Optional[str] = None
     check_interval_hours: int = 24
     options: DownloadOptions = Field(default_factory=DownloadOptions)
+    keep_last_n: Optional[int] = None
+    include_members: bool = True
 
 
 class SubscriptionResponse(BaseModel):
@@ -165,6 +167,8 @@ class SubscriptionResponse(BaseModel):
     last_checked: Optional[datetime]
     last_video_count: int
     created_at: datetime
+    keep_last_n: Optional[int] = None
+    include_members: bool = True
 
     class Config:
         from_attributes = True
@@ -176,3 +180,5 @@ class SubscriptionUpdate(BaseModel):
     check_interval_hours: Optional[int] = None
     enabled: Optional[bool] = None
     options: Optional[DownloadOptions] = None
+    keep_last_n: Optional[int] = None
+    include_members: Optional[bool] = None

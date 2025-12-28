@@ -1971,6 +1971,15 @@ class YtdlApp {
         const opts = subscription.options || {};
         const formatDisplay = opts.output_format ? opts.output_format.toUpperCase() : 'MP4';
 
+        // Build filter badges
+        let filterBadges = '';
+        if (subscription.keep_last_n) {
+            filterBadges += `<span class="badge bg-info me-1" title="Only checking last ${subscription.keep_last_n} videos"><i class="bi bi-filter"></i> Last ${subscription.keep_last_n}</span>`;
+        }
+        if (!subscription.include_members) {
+            filterBadges += `<span class="badge bg-secondary me-1" title="Excluding members-only videos"><i class="bi bi-star-fill"></i> No Members</span>`;
+        }
+
         card.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
                 <div>
@@ -1984,6 +1993,7 @@ class YtdlApp {
                         <span class="mx-2">|</span>
                         <i class="bi bi-collection-play me-1"></i>${subscription.last_video_count} videos
                     </div>
+                    ${filterBadges ? `<div class="mt-1">${filterBadges}</div>` : ''}
                     <div class="meta mt-1">
                         <small class="text-muted">${subscription.url}</small>
                     </div>
@@ -2024,6 +2034,8 @@ class YtdlApp {
         document.getElementById('subscription-url').value = '';
         document.getElementById('subscription-name').value = '';
         document.getElementById('subscription-interval').value = '24';
+        document.getElementById('subscription-keep-last').value = '0';
+        document.getElementById('subscription-include-members').checked = true;
         document.getElementById('sub-format-select').value = 'best';
         document.getElementById('sub-output-format-select').value = 'mp4';
         document.getElementById('sub-output-template').value = '';
@@ -2036,12 +2048,16 @@ class YtdlApp {
         const urlInput = document.getElementById('subscription-url');
         const nameInput = document.getElementById('subscription-name');
         const intervalSelect = document.getElementById('subscription-interval');
+        const keepLastSelect = document.getElementById('subscription-keep-last');
+        const includeMembersCheck = document.getElementById('subscription-include-members');
 
         const url = urlInput.value.trim();
         if (!url) {
             alert('Please enter a URL');
             return;
         }
+
+        const keepLastN = parseInt(keepLastSelect.value);
 
         this.showLoading(true);
 
@@ -2053,7 +2069,9 @@ class YtdlApp {
                     url: url,
                     name: nameInput.value.trim() || null,
                     check_interval_hours: parseInt(intervalSelect.value),
-                    options: this.getSubscriptionOptions()
+                    options: this.getSubscriptionOptions(),
+                    keep_last_n: keepLastN > 0 ? keepLastN : null,
+                    include_members: includeMembersCheck.checked
                 })
             });
 

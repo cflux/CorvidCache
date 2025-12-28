@@ -36,6 +36,14 @@ async def check_subscription(subscription: Subscription):
                 subscription.url, downloaded_ids
             )
 
+            # Filter out members-only videos if not included
+            if not subscription.include_members:
+                entries = [e for e in entries if not e.members_only]
+
+            # Limit to keep_last_n newest videos if set
+            if subscription.keep_last_n and subscription.keep_last_n > 0:
+                entries = entries[:subscription.keep_last_n]
+
             # Find new videos (not already downloaded)
             new_videos = [e for e in entries if not e.already_downloaded]
 
@@ -149,6 +157,8 @@ async def create_subscription(
         name=name,
         check_interval_hours=data.check_interval_hours,
         options=data.options.model_dump(),
+        keep_last_n=data.keep_last_n,
+        include_members=data.include_members,
     )
     db.add(subscription)
     await db.commit()
@@ -203,6 +213,11 @@ async def update_subscription(
         subscription.enabled = data.enabled
     if data.options is not None:
         subscription.options = data.options.model_dump()
+    if data.keep_last_n is not None:
+        # Allow setting to None by passing 0 or negative
+        subscription.keep_last_n = data.keep_last_n if data.keep_last_n > 0 else None
+    if data.include_members is not None:
+        subscription.include_members = data.include_members
 
     await db.commit()
     await db.refresh(subscription)

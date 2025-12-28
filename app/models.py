@@ -126,6 +126,8 @@ class Subscription(Base):
         last_checked: Timestamp of last check.
         last_video_count: Number of videos found on last check.
         created_at: Timestamp when subscription was created.
+        keep_last_n: Only keep the N most recent videos (null = keep all).
+        include_members: Whether to include members-only videos.
     """
     __tablename__ = "subscriptions"
 
@@ -138,6 +140,8 @@ class Subscription(Base):
     last_checked: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_video_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    keep_last_n: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
+    include_members: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class Settings(Base):
