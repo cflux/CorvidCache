@@ -165,6 +165,7 @@ class YtdlApp {
                 }
                 this.updateStatus(card, data.status);
                 this.updateQueueStatus(); // Update navbar status
+                this.refreshIfFiltered(); // Refresh list if filter active
                 break;
 
             case 'progress':
@@ -186,6 +187,7 @@ class YtdlApp {
                 procProgressBar.style.width = '100%';
                 procProgressBar.textContent = '100%';
                 procStatsEl.textContent = data.processing_step || 'Processing...';
+                this.refreshIfFiltered(); // Refresh list if filter active
                 break;
 
             case 'completed':
@@ -195,6 +197,7 @@ class YtdlApp {
                 card.querySelector('.stats').textContent = 'Download complete';
                 this.loadFiles(); // Refresh file list
                 this.updateQueueStatus(); // Update navbar status
+                this.refreshIfFiltered(); // Refresh list if filter active
                 break;
 
             case 'error':
@@ -202,6 +205,7 @@ class YtdlApp {
                 card.querySelector('.stats').textContent = `Error: ${data.error}`;
                 this.updateCardButtons(card, data.id, 'failed');
                 this.updateQueueStatus(); // Update navbar status
+                this.refreshIfFiltered(); // Refresh list if filter active
                 break;
 
             case 'cancelled':
@@ -211,6 +215,7 @@ class YtdlApp {
                 card.querySelector('.progress-bar').textContent = '';
                 this.updateCardButtons(card, data.id, 'cancelled');
                 this.updateQueueStatus(); // Update navbar status
+                this.refreshIfFiltered(); // Refresh list if filter active
                 break;
         }
     }
@@ -679,6 +684,22 @@ class YtdlApp {
     filterByStatus() {
         const statusFilter = document.getElementById('status-filter').value;
         this.loadDownloads(1, statusFilter);
+    }
+
+    /**
+     * Refresh downloads list if a status filter is active.
+     * Debounced to prevent excessive API calls during rapid status changes.
+     */
+    refreshIfFiltered() {
+        if (!this.currentStatusFilter) return;
+
+        // Debounce: only refresh once per 500ms
+        if (this._refreshTimeout) {
+            clearTimeout(this._refreshTimeout);
+        }
+        this._refreshTimeout = setTimeout(() => {
+            this.loadDownloads(this.currentPage);
+        }, 500);
     }
 
     async updateQueueStatus() {
