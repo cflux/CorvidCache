@@ -607,11 +607,11 @@ class DownloaderService:
                 if process.returncode == 0:
                     return {"success": True, "filename": filename or current_file["path"]}
                 else:
-                    return {"success": False, "error": f"yt-dlp exited with code {process.returncode}"}
+                    return {"success": False, "error": f"yt-dlp exited with code {process.returncode}", "partial_file": current_file["path"]}
 
             except Exception as e:
                 logger.error(f"[Download {download_id}] Process error: {e}")
-                return {"success": False, "error": str(e)}
+                return {"success": False, "error": str(e), "partial_file": current_file["path"]}
             finally:
                 if download_id in self._active_processes:
                     del self._active_processes[download_id]
@@ -633,6 +633,13 @@ class DownloaderService:
                     "filename": result.get("filename"),
                 }
             else:
+                # Clean up partial files on failure
+                partial_file = result.get("partial_file")
+                if partial_file:
+                    logger.info(f"[Download {download_id}] Download failed, cleaning up partial files")
+                    self._cleanup_partial_file(partial_file)
+                # Also check for any .ytdl markers
+                self._cleanup_recent_partial_files()
                 return {"success": False, "error": result.get("error", "Unknown error")}
 
         except asyncio.CancelledError:
@@ -645,6 +652,11 @@ class DownloaderService:
             return {"success": False, "error": "Download cancelled", "cancelled": True}
         except Exception as e:
             logger.error(f"[Download {download_id}] Error: {e}")
+            # Clean up partial files on exception
+            if current_file["path"]:
+                logger.info(f"[Download {download_id}] Exception occurred, cleaning up partial files")
+                self._cleanup_partial_file(current_file["path"])
+            self._cleanup_recent_partial_files()
             return {"success": False, "error": str(e)}
         finally:
             if download_id in self._cancel_flags:
@@ -675,6 +687,17 @@ class DownloaderService:
             if parent_dir.exists():
                 # Delete all files that start with the base name
                 self._delete_files_by_basename(parent_dir, base_name)
+
+                # Also check for .part files and fragment files
+                # yt-dlp may create files like: video.f137.mp4, video.f140.m4a, etc.
+                for pattern in [f"{base_name}.f*", f"{base_name}*.part", f"{base_name}*.temp"]:
+                    for file_path in parent_dir.glob(pattern):
+                        if file_path.is_file():
+                            logger.info(f"Deleting temp/fragment file: {file_path}")
+                            try:
+                                file_path.unlink()
+                            except Exception as e:
+                                logger.error(f"Failed to delete {file_path}: {e}")
 
         except Exception as e:
             logger.error(f"Error cleaning up partial file {filepath}: {e}")
