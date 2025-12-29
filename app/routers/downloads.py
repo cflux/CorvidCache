@@ -890,6 +890,8 @@ async def set_max_concurrent(data: dict, db: AsyncSession = Depends(get_db)):
 @router.get("/yt-dlp/version")
 async def get_ytdlp_version():
     """Get current yt-dlp version and check for updates."""
+    from packaging import version
+
     current_version = yt_dlp.version.__version__
 
     # Check PyPI for latest version
@@ -905,7 +907,12 @@ async def get_ytdlp_version():
             if response.status_code == 200:
                 data = response.json()
                 latest_version = data["info"]["version"]
-                update_available = latest_version != current_version
+                # Use proper version comparison - only update if latest is greater
+                try:
+                    update_available = version.parse(latest_version) > version.parse(current_version)
+                except Exception:
+                    # Fallback to string comparison if parsing fails
+                    update_available = latest_version != current_version
     except Exception as e:
         logger.warning(f"Failed to check for yt-dlp updates: {e}")
 
