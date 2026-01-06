@@ -81,6 +81,51 @@ async def run_migrations(conn):
         logger.info("Adding 'thumbnail' column to downloaded_videos table...")
         await conn.execute(text("ALTER TABLE downloaded_videos ADD COLUMN thumbnail VARCHAR(500)"))
 
+    # Migration: Add title_filter column to subscriptions table
+    try:
+        await conn.execute(text("SELECT title_filter FROM subscriptions LIMIT 1"))
+    except Exception:
+        logger.info("Adding 'title_filter' column to subscriptions table...")
+        await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN title_filter VARCHAR(500)"))
+
+
+async def ensure_default_presets():
+    """Ensure default output path preset exists."""
+    from app.models import Settings
+
+    async with async_session() as db:
+        result = await db.execute(
+            text("SELECT value FROM settings WHERE key = 'output_path_presets'")
+        )
+        row = result.fetchone()
+
+        default_template = "%(channel)s/%(upload_date)s_%(title)s.%(ext)s"
+        default_preset = {"name": "Default", "template": default_template}
+
+        if row is None:
+            # No presets exist, create with default
+            import json
+            await db.execute(
+                text("INSERT INTO settings (key, value) VALUES (:key, :value)"),
+                {"key": "output_path_presets", "value": json.dumps({"presets": [default_preset]})}
+            )
+            await db.commit()
+            logger.info("Created default output path preset")
+        else:
+            # Check if default preset exists
+            import json
+            data = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+            presets = data.get("presets", [])
+            if not any(p.get("name") == "Default" for p in presets):
+                # Add default preset at the beginning
+                presets.insert(0, default_preset)
+                await db.execute(
+                    text("UPDATE settings SET value = :value WHERE key = 'output_path_presets'"),
+                    {"value": json.dumps({"presets": presets})}
+                )
+                await db.commit()
+                logger.info("Added default output path preset")
+
 
 async def init_db():
     """
@@ -94,3 +139,6 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
         # Run migrations for existing tables
         await run_migrations(conn)
+
+    # Ensure default presets exist
+    await ensure_default_presets()

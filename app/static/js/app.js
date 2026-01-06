@@ -2223,6 +2223,9 @@ class YtdlApp {
         if (!subscription.include_members) {
             filterBadges += `<span class="badge bg-secondary me-1" title="Excluding members-only videos"><i class="bi bi-star-fill"></i> No Members</span>`;
         }
+        if (subscription.title_filter) {
+            filterBadges += `<span class="badge bg-primary me-1" title="Title filter: ${subscription.title_filter}"><i class="bi bi-funnel"></i> ${subscription.title_filter}</span>`;
+        }
 
         card.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
@@ -2283,6 +2286,7 @@ class YtdlApp {
         document.getElementById('subscription-interval').value = '24';
         document.getElementById('subscription-keep-last').value = '0';
         document.getElementById('subscription-include-members').checked = true;
+        document.getElementById('subscription-title-filter').value = '';
         document.getElementById('sub-format-select').value = 'best';
         document.getElementById('sub-output-format-select').value = 'mp4';
         document.getElementById('sub-output-template').value = '';
@@ -2297,6 +2301,7 @@ class YtdlApp {
         const intervalSelect = document.getElementById('subscription-interval');
         const keepLastSelect = document.getElementById('subscription-keep-last');
         const includeMembersCheck = document.getElementById('subscription-include-members');
+        const titleFilterInput = document.getElementById('subscription-title-filter');
 
         const url = urlInput.value.trim();
         if (!url) {
@@ -2305,6 +2310,7 @@ class YtdlApp {
         }
 
         const keepLastN = parseInt(keepLastSelect.value);
+        const titleFilter = titleFilterInput.value.trim();
 
         this.showLoading(true);
 
@@ -2318,7 +2324,8 @@ class YtdlApp {
                     check_interval_hours: parseInt(intervalSelect.value),
                     options: this.getSubscriptionOptions(),
                     keep_last_n: keepLastN > 0 ? keepLastN : null,
-                    include_members: includeMembersCheck.checked
+                    include_members: includeMembersCheck.checked,
+                    title_filter: titleFilter || null
                 })
             });
 

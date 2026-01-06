@@ -324,9 +324,14 @@
                                 </select>
                                 <small class="text-muted">Only download from the most recent videos</small>
                             </div>
-                            <div class="form-check mb-2">
+                            <div class="form-check mb-3">
                                 <input class="form-check-input" type="checkbox" id="subscription-include-members" checked>
                                 <label class="form-check-label" for="subscription-include-members">Include Members-Only Videos</label>
+                            </div>
+                            <div class="mb-3">
+                                <label for="subscription-title-filter" class="form-label">Title Filter (optional)</label>
+                                <input type="text" class="form-control" id="subscription-title-filter" placeholder="*tutorial*, *review*">
+                                <small class="text-muted">Wildcard pattern to match video titles (* = any characters, ? = single character)</small>
                             </div>
                         </div>
                         <div class="col-md-6">

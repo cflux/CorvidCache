@@ -154,6 +154,7 @@ class SubscriptionCreate(BaseModel):
     options: DownloadOptions = Field(default_factory=DownloadOptions)
     keep_last_n: Optional[int] = None
     include_members: bool = True
+    title_filter: Optional[str] = None
 
 
 class SubscriptionResponse(BaseModel):
@@ -169,6 +170,7 @@ class SubscriptionResponse(BaseModel):
     created_at: datetime
     keep_last_n: Optional[int] = None
     include_members: bool = True
+    title_filter: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -182,3 +184,4 @@ class SubscriptionUpdate(BaseModel):
     options: Optional[DownloadOptions] = None
     keep_last_n: Optional[int] = None
     include_members: Optional[bool] = None
+    title_filter: Optional[str] = None

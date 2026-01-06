@@ -144,6 +144,7 @@ class Subscription(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     keep_last_n: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
     include_members: Mapped[bool] = mapped_column(Boolean, default=True)
+    title_filter: Mapped[Optional[str]] = mapped_column(String(500), nullable=True, default=None)
 
 
 class Settings(Base):

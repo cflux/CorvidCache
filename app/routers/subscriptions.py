@@ -1,4 +1,6 @@
 import asyncio
+import fnmatch
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -16,6 +18,8 @@ from app.schemas import (
 )
 from app.services.downloader import downloader_service
 from app.routers.websocket import manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/subscriptions", tags=["subscriptions"])
 
@@ -48,6 +52,13 @@ async def check_subscription(subscription_id: int):
             # Filter out members-only videos if not included
             if not subscription.include_members:
                 entries = [e for e in entries if not e.members_only]
+
+            # Filter by title pattern if set (supports wildcards like * and ?)
+            if subscription.title_filter:
+                pattern = subscription.title_filter
+                original_count = len(entries)
+                entries = [e for e in entries if fnmatch.fnmatch(e.title.lower(), pattern.lower())]
+                logger.info(f"Title filter '{pattern}' matched {len(entries)}/{original_count} videos for {subscription.name}")
 
             # Limit to keep_last_n newest videos if set
             if subscription.keep_last_n and subscription.keep_last_n > 0:
@@ -168,6 +179,7 @@ async def create_subscription(
         options=data.options.model_dump(),
         keep_last_n=data.keep_last_n,
         include_members=data.include_members,
+        title_filter=data.title_filter,
     )
     db.add(subscription)
     await db.commit()
@@ -227,6 +239,9 @@ async def update_subscription(
         subscription.keep_last_n = data.keep_last_n if data.keep_last_n > 0 else None
     if data.include_members is not None:
         subscription.include_members = data.include_members
+    if data.title_filter is not None:
+        # Allow clearing by passing empty string
+        subscription.title_filter = data.title_filter if data.title_filter else None
 
     await db.commit()
     await db.refresh(subscription)
