@@ -331,23 +331,23 @@ class YtdlApp {
             });
         });
 
-        // Playlist modal buttons
+        // Playlist modal buttons - only affect visible (non-filtered) entries
         document.getElementById('select-all-btn').addEventListener('click', () => {
-            document.querySelectorAll('#playlist-entries input[type="checkbox"]').forEach(cb => {
+            document.querySelectorAll('#playlist-entries .playlist-entry:not([style*="display: none"]) input[type="checkbox"]').forEach(cb => {
                 cb.checked = true;
             });
             this.updateSelectedCount();
         });
 
         document.getElementById('select-none-btn').addEventListener('click', () => {
-            document.querySelectorAll('#playlist-entries input[type="checkbox"]').forEach(cb => {
+            document.querySelectorAll('#playlist-entries .playlist-entry:not([style*="display: none"]) input[type="checkbox"]').forEach(cb => {
                 cb.checked = false;
             });
             this.updateSelectedCount();
         });
 
         document.getElementById('select-new-btn').addEventListener('click', () => {
-            document.querySelectorAll('#playlist-entries input[type="checkbox"]').forEach(cb => {
+            document.querySelectorAll('#playlist-entries .playlist-entry:not([style*="display: none"]) input[type="checkbox"]').forEach(cb => {
                 const entry = cb.closest('.playlist-entry');
                 cb.checked = !entry.classList.contains('already-downloaded');
             });
@@ -355,7 +355,7 @@ class YtdlApp {
         });
 
         document.getElementById('deselect-members-btn').addEventListener('click', () => {
-            document.querySelectorAll('#playlist-entries .members-only input[type="checkbox"]').forEach(cb => {
+            document.querySelectorAll('#playlist-entries .playlist-entry:not([style*="display: none"]).members-only input[type="checkbox"]').forEach(cb => {
                 cb.checked = false;
             });
             this.updateSelectedCount();
@@ -363,6 +363,21 @@ class YtdlApp {
 
         document.getElementById('download-selected-btn').addEventListener('click', () => {
             this.downloadSelectedFromPlaylist();
+        });
+
+        // Playlist title filter
+        document.getElementById('apply-playlist-filter-btn').addEventListener('click', () => {
+            this.applyPlaylistTitleFilter();
+        });
+
+        document.getElementById('clear-playlist-filter-btn').addEventListener('click', () => {
+            this.clearPlaylistTitleFilter();
+        });
+
+        document.getElementById('playlist-title-filter').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.applyPlaylistTitleFilter();
+            }
         });
 
         // Cookie management
@@ -479,6 +494,10 @@ class YtdlApp {
     async showPlaylistModal(url, info) {
         this.currentPlaylist = { url, info };
 
+        // Clear any previous filter
+        document.getElementById('playlist-title-filter').value = '';
+        document.getElementById('playlist-filter-status').textContent = '';
+
         document.getElementById('playlist-title').textContent = info.title;
         document.getElementById('playlist-count').textContent = `${info.count} videos`;
 
@@ -549,8 +568,54 @@ class YtdlApp {
     }
 
     updateSelectedCount() {
-        const checked = document.querySelectorAll('#playlist-entries input[type="checkbox"]:checked').length;
+        // Only count visible (not hidden by filter) checked entries
+        const checked = document.querySelectorAll('#playlist-entries .playlist-entry:not([style*="display: none"]) input[type="checkbox"]:checked').length;
         document.getElementById('selected-count').textContent = checked;
+    }
+
+    applyPlaylistTitleFilter() {
+        const filterInput = document.getElementById('playlist-title-filter');
+        const pattern = filterInput.value.trim().toLowerCase();
+        const statusEl = document.getElementById('playlist-filter-status');
+
+        if (!pattern) {
+            this.clearPlaylistTitleFilter();
+            return;
+        }
+
+        const entries = document.querySelectorAll('#playlist-entries .playlist-entry');
+        let shown = 0;
+        let total = entries.length;
+
+        entries.forEach(entry => {
+            const title = entry.querySelector('.title')?.textContent?.toLowerCase() || '';
+            // Use simple wildcard matching: * = any chars, ? = single char
+            const regex = new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+            if (regex.test(title)) {
+                entry.style.display = '';
+                shown++;
+            } else {
+                entry.style.display = 'none';
+                // Uncheck hidden entries
+                const checkbox = entry.querySelector('input[type="checkbox"]');
+                if (checkbox) checkbox.checked = false;
+            }
+        });
+
+        statusEl.textContent = `Showing ${shown} of ${total} videos`;
+        this.updateSelectedCount();
+    }
+
+    clearPlaylistTitleFilter() {
+        document.getElementById('playlist-title-filter').value = '';
+        document.getElementById('playlist-filter-status').textContent = '';
+
+        // Show all entries
+        document.querySelectorAll('#playlist-entries .playlist-entry').forEach(entry => {
+            entry.style.display = '';
+        });
+
+        this.updateSelectedCount();
     }
 
     async downloadSelectedFromPlaylist() {
