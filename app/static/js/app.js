@@ -32,6 +32,8 @@ class YtdlApp {
         this.totalPages = 1;
         /** @type {string} Current status filter for downloads */
         this.currentStatusFilter = '';
+        /** @type {number|null} ID of subscription being edited, null for new */
+        this.editingSubscriptionId = null;
         this.init();
     }
 
@@ -407,8 +409,13 @@ class YtdlApp {
         });
 
         // Subscription management
-        document.getElementById('add-subscription-btn').addEventListener('click', () => {
-            this.addSubscription();
+        document.getElementById('save-subscription-btn').addEventListener('click', () => {
+            this.saveSubscription();
+        });
+
+        // Reset subscription form when modal is closed
+        document.getElementById('add-subscription-modal').addEventListener('hidden.bs.modal', () => {
+            this.resetSubscriptionForm();
         });
 
         // Tab switching for subscriptions
@@ -2252,6 +2259,9 @@ class YtdlApp {
                     <button class="btn btn-sm btn-outline-primary" onclick="app.checkSubscriptionNow(${subscription.id})" title="Check now">
                         <i class="bi bi-arrow-clockwise"></i>
                     </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="app.editSubscription(${subscription.id})" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </button>
                     <button class="btn btn-sm btn-outline-${subscription.enabled ? 'warning' : 'success'}"
                             onclick="app.toggleSubscription(${subscription.id}, ${!subscription.enabled})"
                             title="${subscription.enabled ? 'Pause' : 'Resume'}">
@@ -2281,7 +2291,12 @@ class YtdlApp {
     }
 
     resetSubscriptionForm() {
+        this.editingSubscriptionId = null;
+        document.getElementById('subscription-modal-title').innerHTML = '<i class="bi bi-rss me-2"></i>Add Subscription';
+        document.getElementById('save-subscription-icon').className = 'bi bi-plus-lg me-1';
+        document.getElementById('save-subscription-text').textContent = 'Add Subscription';
         document.getElementById('subscription-url').value = '';
+        document.getElementById('subscription-url').disabled = false;
         document.getElementById('subscription-name').value = '';
         document.getElementById('subscription-interval').value = '24';
         document.getElementById('subscription-keep-last').value = '0';
@@ -2295,7 +2310,44 @@ class YtdlApp {
         document.getElementById('sub-metadata-check').checked = true;
     }
 
-    async addSubscription() {
+    async editSubscription(id) {
+        try {
+            const response = await fetch(`/api/subscriptions/${id}`);
+            if (!response.ok) throw new Error('Failed to load subscription');
+            const sub = await response.json();
+
+            // Set editing mode
+            this.editingSubscriptionId = id;
+            document.getElementById('subscription-modal-title').innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Subscription';
+            document.getElementById('save-subscription-icon').className = 'bi bi-check-lg me-1';
+            document.getElementById('save-subscription-text').textContent = 'Save Changes';
+
+            // Populate form fields
+            document.getElementById('subscription-url').value = sub.url;
+            document.getElementById('subscription-url').disabled = true; // Can't change URL
+            document.getElementById('subscription-name').value = sub.name || '';
+            document.getElementById('subscription-interval').value = sub.check_interval_hours.toString();
+            document.getElementById('subscription-keep-last').value = (sub.keep_last_n || 0).toString();
+            document.getElementById('subscription-include-members').checked = sub.include_members;
+            document.getElementById('subscription-title-filter').value = sub.title_filter || '';
+
+            // Populate download options
+            const opts = sub.options || {};
+            document.getElementById('sub-format-select').value = opts.format || 'best';
+            document.getElementById('sub-output-format-select').value = opts.output_format || 'mp4';
+            document.getElementById('sub-output-template').value = opts.output_template || '';
+            document.getElementById('sub-subtitles-check').checked = opts.subtitles || false;
+            document.getElementById('sub-thumbnail-check').checked = opts.embed_thumbnail || false;
+            document.getElementById('sub-metadata-check').checked = opts.embed_metadata !== false;
+
+            // Open modal
+            new bootstrap.Modal(document.getElementById('add-subscription-modal')).show();
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    async saveSubscription() {
         const urlInput = document.getElementById('subscription-url');
         const nameInput = document.getElementById('subscription-name');
         const intervalSelect = document.getElementById('subscription-interval');
@@ -2304,7 +2356,7 @@ class YtdlApp {
         const titleFilterInput = document.getElementById('subscription-title-filter');
 
         const url = urlInput.value.trim();
-        if (!url) {
+        if (!url && !this.editingSubscriptionId) {
             alert('Please enter a URL');
             return;
         }
@@ -2315,26 +2367,42 @@ class YtdlApp {
         this.showLoading(true);
 
         try {
-            const response = await fetch('/api/subscriptions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url: url,
-                    name: nameInput.value.trim() || null,
-                    check_interval_hours: parseInt(intervalSelect.value),
-                    options: this.getSubscriptionOptions(),
-                    keep_last_n: keepLastN > 0 ? keepLastN : null,
-                    include_members: includeMembersCheck.checked,
-                    title_filter: titleFilter || null
-                })
-            });
+            let response;
+            if (this.editingSubscriptionId) {
+                // Update existing subscription
+                response = await fetch(`/api/subscriptions/${this.editingSubscriptionId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: nameInput.value.trim() || null,
+                        check_interval_hours: parseInt(intervalSelect.value),
+                        options: this.getSubscriptionOptions(),
+                        keep_last_n: keepLastN > 0 ? keepLastN : 0,
+                        include_members: includeMembersCheck.checked,
+                        title_filter: titleFilter || ''
+                    })
+                });
+            } else {
+                // Create new subscription
+                response = await fetch('/api/subscriptions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: url,
+                        name: nameInput.value.trim() || null,
+                        check_interval_hours: parseInt(intervalSelect.value),
+                        options: this.getSubscriptionOptions(),
+                        keep_last_n: keepLastN > 0 ? keepLastN : null,
+                        include_members: includeMembersCheck.checked,
+                        title_filter: titleFilter || null
+                    })
+                });
+            }
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.detail || 'Failed to add subscription');
+                throw new Error(error.detail || 'Failed to save subscription');
             }
-
-            const subscription = await response.json();
 
             // Close modal and reset form
             bootstrap.Modal.getInstance(document.getElementById('add-subscription-modal')).hide();
@@ -2343,8 +2411,10 @@ class YtdlApp {
             // Refresh list
             this.loadSubscriptions();
 
-            // Switch to subscriptions tab
-            document.getElementById('subscriptions-tab').click();
+            // Switch to subscriptions tab if adding new
+            if (!this.editingSubscriptionId) {
+                document.getElementById('subscriptions-tab').click();
+            }
 
         } catch (error) {
             alert(`Error: ${error.message}`);
