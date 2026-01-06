@@ -965,6 +965,7 @@ async def get_ytdlp_version():
     from packaging import version
 
     current_version = yt_dlp.version.__version__
+    logger.info(f"Checking yt-dlp version. Current: {current_version}")
 
     # Check PyPI for latest version
     latest_version = None
@@ -982,11 +983,15 @@ async def get_ytdlp_version():
                 # Use proper version comparison - only update if latest is greater
                 try:
                     update_available = version.parse(latest_version) > version.parse(current_version)
-                except Exception:
+                    logger.info(f"yt-dlp version check complete. Latest: {latest_version}, Update available: {update_available}")
+                except Exception as e:
                     # Fallback to string comparison if parsing fails
+                    logger.warning(f"Failed to parse versions for comparison: {e}. Falling back to string comparison.")
                     update_available = latest_version != current_version
+            else:
+                logger.warning(f"Failed to fetch yt-dlp version from PyPI. Status code: {response.status_code}")
     except Exception as e:
-        logger.warning(f"Failed to check for yt-dlp updates: {e}")
+        logger.error(f"Error checking for yt-dlp updates: {e}")
 
     return {
         "current_version": current_version,
