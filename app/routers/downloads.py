@@ -396,8 +396,11 @@ async def list_downloads(
     total = total_result.scalar()
 
     # Get paginated results
+    # Sort by completed_at (for finished downloads) or created_at (for in-progress)
     offset = (page - 1) * limit
-    query = base_query.order_by(Download.created_at.desc()).offset(offset).limit(limit)
+    query = base_query.order_by(
+        func.coalesce(Download.completed_at, Download.created_at).desc()
+    ).offset(offset).limit(limit)
     result = await db.execute(query)
     downloads = result.scalars().all()
 
@@ -883,6 +886,75 @@ async def set_max_concurrent(data: dict, db: AsyncSession = Depends(get_db)):
     logger.info(f"Max concurrent downloads set to {value}")
 
     return {"success": True, "value": value}
+
+
+@router.get("/settings/output-path-presets")
+async def get_output_path_presets(db: AsyncSession = Depends(get_db)):
+    """Get saved output path presets."""
+    result = await db.execute(
+        select(Settings).where(Settings.key == "output_path_presets")
+    )
+    setting = result.scalar_one_or_none()
+    if setting:
+        return {"presets": setting.value.get("presets", [])}
+    return {"presets": []}
+
+
+@router.post("/settings/output-path-presets")
+async def add_output_path_preset(data: dict, db: AsyncSession = Depends(get_db)):
+    """Add a new output path preset."""
+    name = data.get("name", "").strip()
+    template = data.get("template", "").strip()
+
+    if not name or not template:
+        raise HTTPException(status_code=400, detail="Name and template are required")
+
+    result = await db.execute(
+        select(Settings).where(Settings.key == "output_path_presets")
+    )
+    setting = result.scalar_one_or_none()
+
+    presets = []
+    if setting:
+        presets = setting.value.get("presets", [])
+
+    # Check for duplicate names
+    if any(p["name"] == name for p in presets):
+        raise HTTPException(status_code=400, detail="A preset with this name already exists")
+
+    presets.append({"name": name, "template": template})
+
+    if setting:
+        setting.value = {"presets": presets}
+    else:
+        setting = Settings(key="output_path_presets", value={"presets": presets})
+        db.add(setting)
+
+    await db.commit()
+    return {"success": True, "presets": presets}
+
+
+@router.delete("/settings/output-path-presets/{name}")
+async def delete_output_path_preset(name: str, db: AsyncSession = Depends(get_db)):
+    """Delete an output path preset."""
+    result = await db.execute(
+        select(Settings).where(Settings.key == "output_path_presets")
+    )
+    setting = result.scalar_one_or_none()
+
+    if not setting:
+        raise HTTPException(status_code=404, detail="No presets found")
+
+    presets = setting.value.get("presets", [])
+    original_count = len(presets)
+    presets = [p for p in presets if p["name"] != name]
+
+    if len(presets) == original_count:
+        raise HTTPException(status_code=404, detail="Preset not found")
+
+    setting.value = {"presets": presets}
+    await db.commit()
+    return {"success": True, "presets": presets}
 
 
 # yt-dlp Version Management

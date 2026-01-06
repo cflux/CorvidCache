@@ -102,7 +102,18 @@
                         <label for="output-template" class="form-label mb-0">Output Path</label>
                         <a href="#" class="small text-decoration-none" onclick="app.resetOutputPath(); return false;">Reset</a>
                     </div>
-                    <input type="text" class="form-control mt-1" id="output-template">
+                    <div class="input-group mt-1">
+                        <select class="form-select" id="output-preset-select" onchange="app.selectOutputPreset()">
+                            <option value="">-- Select Preset --</option>
+                        </select>
+                        <button class="btn btn-outline-secondary" type="button" onclick="app.saveOutputPreset()" title="Save current template as preset">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        <button class="btn btn-outline-danger d-none" type="button" id="delete-preset-btn" onclick="app.deleteOutputPreset()" title="Delete selected preset">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <input type="text" class="form-control mt-2" id="output-template">
                     <div class="form-text">
                         Default: %(channel)s/%(upload_date)s_%(title)s.%(ext)s
                     </div>

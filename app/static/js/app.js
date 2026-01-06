@@ -48,6 +48,7 @@ class YtdlApp {
         this.loadCookieStatus();
         this.loadSubscriptions();
         this.loadDownloadOptions();
+        this.loadOutputPathPresets();
         this.checkYtdlpVersion();
         this.initTooltips();
     }
@@ -663,6 +664,116 @@ class YtdlApp {
 
     resetOutputPath() {
         document.getElementById('output-template').value = YtdlApp.DEFAULT_OUTPUT_TEMPLATE;
+        document.getElementById('output-preset-select').value = '';
+        document.getElementById('delete-preset-btn').classList.add('d-none');
+    }
+
+    async loadOutputPathPresets() {
+        try {
+            const response = await fetch('/api/settings/output-path-presets');
+            const data = await response.json();
+            const select = document.getElementById('output-preset-select');
+
+            // Clear existing options except the first one
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            // Add preset options
+            data.presets.forEach(preset => {
+                const option = document.createElement('option');
+                option.value = preset.template;
+                option.textContent = preset.name;
+                option.dataset.name = preset.name;
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Failed to load output path presets:', error);
+        }
+    }
+
+    selectOutputPreset() {
+        const select = document.getElementById('output-preset-select');
+        const deleteBtn = document.getElementById('delete-preset-btn');
+
+        if (select.value) {
+            document.getElementById('output-template').value = select.value;
+            deleteBtn.classList.remove('d-none');
+        } else {
+            deleteBtn.classList.add('d-none');
+        }
+    }
+
+    async saveOutputPreset() {
+        const template = document.getElementById('output-template').value.trim();
+        if (!template) {
+            this.showToast('Please enter an output path template first', 'warning');
+            return;
+        }
+
+        const name = prompt('Enter a name for this preset:');
+        if (!name || !name.trim()) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/settings/output-path-presets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name.trim(), template })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                this.showToast(error.detail || 'Failed to save preset', 'danger');
+                return;
+            }
+
+            this.showToast('Preset saved successfully', 'success');
+            await this.loadOutputPathPresets();
+
+            // Select the newly added preset
+            const select = document.getElementById('output-preset-select');
+            select.value = template;
+            document.getElementById('delete-preset-btn').classList.remove('d-none');
+        } catch (error) {
+            console.error('Failed to save preset:', error);
+            this.showToast('Failed to save preset', 'danger');
+        }
+    }
+
+    async deleteOutputPreset() {
+        const select = document.getElementById('output-preset-select');
+        const selectedOption = select.options[select.selectedIndex];
+
+        if (!selectedOption || !selectedOption.dataset.name) {
+            return;
+        }
+
+        const presetName = selectedOption.dataset.name;
+        if (!confirm(`Delete preset "${presetName}"?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/settings/output-path-presets/${encodeURIComponent(presetName)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                this.showToast(error.detail || 'Failed to delete preset', 'danger');
+                return;
+            }
+
+            this.showToast('Preset deleted', 'success');
+            await this.loadOutputPathPresets();
+            select.value = '';
+            document.getElementById('delete-preset-btn').classList.add('d-none');
+        } catch (error) {
+            console.error('Failed to delete preset:', error);
+            this.showToast('Failed to delete preset', 'danger');
+        }
     }
 
     async loadDownloads(page = 1, statusFilter = null) {
@@ -740,8 +851,12 @@ class YtdlApp {
             return;
         }
 
-        // Sort by newest first
-        const sortedDownloads = data.downloads.sort((a, b) => b.id - a.id);
+        // Sort by most recently completed first
+        const sortedDownloads = data.downloads.sort((a, b) => {
+            const aTime = a.completed_at || a.created_at;
+            const bTime = b.completed_at || b.created_at;
+            return new Date(bTime) - new Date(aTime);
+        });
         sortedDownloads.forEach(dl => this.addDownloadCard(dl, container));
 
         this.updatePaginationControls();
